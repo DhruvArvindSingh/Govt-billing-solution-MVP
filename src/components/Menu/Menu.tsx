@@ -5,7 +5,7 @@ import { isPlatform, IonToast } from "@ionic/react";
 import { EmailComposer } from "capacitor-email-composer";
 import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert } from "@ionic/react";
-import { saveOutline, save, mail, print } from "ionicons/icons";
+import { saveOutline, save, mail, print, download } from "ionicons/icons";
 import { APP_NAME } from "../../app-data.js";
 
 const Menu: React.FC<{
@@ -132,6 +132,40 @@ const Menu: React.FC<{
     }
   };
 
+  const downloadCSV = () => {
+    try {
+      // Get CSV content from SocialCalc
+      const csvContent = AppGeneral.getCSVContent();
+
+      // Create blob with CSV data
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+      // Create download link
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+
+      // Generate filename with current date and selected file name
+      const currentDate = new Date().toISOString().split('T')[0];
+      const filename = `${getCurrentFileName()}_${currentDate}.csv`;
+      link.setAttribute('download', filename);
+
+      // Trigger download
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up URL
+      URL.revokeObjectURL(url);
+
+      console.log('CSV downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      alert('Error downloading CSV file. Please try again.');
+    }
+  };
+
   return (
     <React.Fragment>
       <IonActionSheet
@@ -170,6 +204,14 @@ const Menu: React.FC<{
             handler: () => {
               sendEmail();
               console.log("Email clicked");
+            },
+          },
+          {
+            text: "Download CSV",
+            icon: download,
+            handler: () => {
+              downloadCSV();
+              console.log("Download CSV clicked");
             },
           },
         ]}
