@@ -144,8 +144,8 @@ const Menu: React.FC<{
 
       // Create download link
       const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
+      const url = URL.createObjectURL(blob); -
+        link.setAttribute('href', url);
 
       // Generate filename with current date and selected file name
       const currentDate = new Date().toISOString().split('T')[0];
@@ -171,24 +171,45 @@ const Menu: React.FC<{
   const exportAsPdf = async () => {
     try {
       // Always use DOM capture method for more reliable results
-      const spreadsheetContainer = document.getElementById('tableeditor');
+      // Get the spreadsheet container by id and clone it
+      const spreadsheetContainer = document.getElementById('te_fullgrid');
+      const spreadsheetClone = spreadsheetContainer ? spreadsheetContainer.cloneNode(true) as HTMLElement : null;
+      // Remove all child HTML inside the cloned spreadsheet container
+      if (spreadsheetClone) {
+        while (spreadsheetClone.firstChild) {
+          spreadsheetClone.removeChild(spreadsheetClone.firstChild);
+        }
+      }
+
+      console.log("spreadsheetContainer", spreadsheetClone);
       if (!spreadsheetContainer) {
         throw new Error('Spreadsheet container not found');
       }
+      // Append the colgroup tag present in the spreadsheetContainer into the spreadsheetClone
+      if (spreadsheetContainer && spreadsheetClone) {
+        const colgroup = spreadsheetContainer.querySelector('colgroup');
+        if (colgroup) {
+          spreadsheetClone.appendChild(colgroup.cloneNode(true));
+        }
+      }
+
 
       console.log('Using DOM capture method for PDF export');
+      console.log(AppGeneral.getCurrentSheet());
 
       // Find the grid container specifically (where the data is displayed)
-      const gridContainer = spreadsheetContainer.querySelector('#te_griddiv') ||
-        spreadsheetContainer.querySelector('.te_griddiv') ||
-        spreadsheetContainer;
+      const gridContainer = spreadsheetContainer;
+      // const gridContainer = spreadsheetContainer[0].querySelector('#te_griddiv') ||
+      // spreadsheetContainer[0].querySelector('.te_griddiv') ||
+      // spreadsheetContainer[0];
 
       console.log('Grid container found:', gridContainer);
 
       // Ensure the spreadsheet is fully rendered and visible
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Create PDF directly from the visible spreadsheet element
+      console.log("Before canvas");
       const canvas = await html2canvas(gridContainer as HTMLElement, {
         useCORS: true,
         allowTaint: true,
@@ -201,6 +222,7 @@ const Menu: React.FC<{
         imageTimeout: 0,
         removeContainer: false
       } as any);
+      console.log("After canvas");
 
       console.log('Canvas created with dimensions:', canvas.width, 'x', canvas.height);
 

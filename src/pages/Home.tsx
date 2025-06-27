@@ -9,6 +9,7 @@ import {
   IonPopover,
   IonTitle,
   IonToolbar,
+  isPlatform,
 } from "@ionic/react";
 import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
@@ -28,7 +29,47 @@ const Home: React.FC = () => {
   }>({ open: false, event: undefined });
   const [selectedFile, updateSelectedFile] = useState("default");
   const [billType, updateBillType] = useState(1);
-  const [device] = useState("default");
+  const getDeviceType = () => {
+    // Use Ionic's isPlatform for more reliable detection
+    if (isPlatform("android")) {
+      console.log("android from isPlatform");
+      return "Android";
+    }
+    if (isPlatform("ipad")) {
+      console.log("ipad from isPlatform");
+      return "iPad";
+    }
+    if (isPlatform("iphone")) {
+      console.log("iphone from isPlatform");
+      return "iPhone";
+    }
+    // Ionic's isPlatform does not support "ipod", so check user agent for iPod
+    if (/iPod/.test(navigator.userAgent)) {
+      console.log("ipod from user agent");
+      return "iPod";
+    }
+
+    // Fallback to user agent detection for web browsers
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+    if (/android/i.test(ua)) {
+      console.log("android from user agent");
+      return "Android";
+    }
+    if (/iPad/.test(ua) && !(window as any).MSStream) {
+      console.log("ipad from user agent");
+      return "iPad";
+    }
+    if (/iPhone/.test(ua) && !(window as any).MSStream) {
+      console.log("iphone from user agent");
+      return "iPhone";
+    }
+    if (/iPod/.test(ua) && !(window as any).MSStream) {
+      console.log("ipod from user agent");
+      return "iPod";
+    }
+    return "default";
+  };
+  const [device] = useState(getDeviceType());
 
   const store = new Local();
 
