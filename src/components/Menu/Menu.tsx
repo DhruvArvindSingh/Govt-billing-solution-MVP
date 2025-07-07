@@ -9,6 +9,8 @@ import { saveOutline, save, mail, print, download } from "ionicons/icons";
 import { APP_NAME } from "../../app-data.js";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 const Menu: React.FC<{
   showM: boolean;
@@ -24,6 +26,8 @@ const Menu: React.FC<{
   const [showAlert4, setShowAlert4] = useState(false);
   const [showToast1, setShowToast1] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   /* Utility functions */
   const _validateName = async (filename) => {
     filename = filename.trim();
@@ -134,34 +138,61 @@ const Menu: React.FC<{
     }
   };
 
-  const exportAsCsv = () => {
+  const exportAsCsv = async () => {
     try {
       // Get CSV content from SocialCalc
       const csvContent = AppGeneral.getCSVContent();
 
-      // Create blob with CSV data
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-      // Create download link
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob); -
-        link.setAttribute('href', url);
-
       // Generate filename with current date and selected file name
       const currentDate = new Date().toISOString().split('T')[0];
       const filename = `${getCurrentFileName()}_${currentDate}.csv`;
-      link.setAttribute('download', filename);
 
-      // Trigger download
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (isPlatform('hybrid')) {
+        // Mobile device - use Capacitor Filesystem and Share
+        try {
+          // Write file to device storage
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: csvContent,
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8
+          });
 
-      // Clean up URL
-      URL.revokeObjectURL(url);
+          console.log('File written to:', result.uri);
 
-      console.log('CSV downloaded successfully');
+          // Share the file
+          await Share.share({
+            title: 'Export CSV',
+            text: `${APP_NAME} - ${filename}`,
+            url: result.uri,
+            dialogTitle: 'Share CSV File'
+          });
+
+          console.log('CSV exported and shared successfully');
+          setSuccessMessage('CSV file exported and ready to share!');
+          setShowSuccessToast(true);
+        } catch (mobileError) {
+          console.error('Mobile CSV export error:', mobileError);
+          alert('Error exporting CSV file on mobile. Please try again.');
+        }
+      } else {
+        // Web browser - use traditional download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+
+        // Trigger download
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up URL
+        URL.revokeObjectURL(url);
+        console.log('CSV downloaded successfully');
+      }
     } catch (error) {
       console.error('Error downloading CSV:', error);
       alert('Error downloading CSV file. Please try again.');
@@ -340,10 +371,42 @@ const Menu: React.FC<{
       const currentDate = new Date().toISOString().split('T')[0];
       const filename = `${getCurrentFileName()}_${currentDate}.pdf`;
 
-      // Download the PDF
-      pdf.save(filename);
+      if (isPlatform('hybrid')) {
+        // Mobile device - use Capacitor Filesystem and Share
+        try {
+          // Convert PDF to base64
+          const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-      console.log('PDF downloaded successfully using DOM capture');
+          // Write file to device storage
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: pdfBase64,
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8
+          });
+
+          console.log('PDF file written to:', result.uri);
+
+          // Share the PDF file
+          await Share.share({
+            title: 'Export PDF',
+            text: `${APP_NAME} - ${filename}`,
+            url: result.uri,
+            dialogTitle: 'Share PDF File'
+          });
+
+          console.log('PDF exported and shared successfully');
+          setSuccessMessage('PDF file exported and ready to share!');
+          setShowSuccessToast(true);
+        } catch (mobileError) {
+          console.error('Mobile PDF export error:', mobileError);
+          alert('Error exporting PDF file on mobile. Please try again.');
+        }
+      } else {
+        // Web browser - use traditional download
+        pdf.save(filename);
+        console.log('PDF downloaded successfully using DOM capture');
+      }
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF file. Please try again.');
@@ -469,6 +532,15 @@ const Menu: React.FC<{
         position="bottom"
         message={toastMessage}
         duration={500}
+      />
+      <IonToast
+        animated
+        isOpen={showSuccessToast}
+        onDidDismiss={() => setShowSuccessToast(false)}
+        position="bottom"
+        message={successMessage}
+        duration={3000}
+        color="success"
       />
     </React.Fragment>
   );

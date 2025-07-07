@@ -1,0 +1,328 @@
+/* Cloud Component Styles */
+.cloud-modal {
+    --height: 80vh;
+    --width: 90vw;
+    --max-width: 800px;
+    --max-height: 600px;
+}
+
+.cloud-content {
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e1e1e1;
+    background-color: #f9f9f9;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px 20px;
+    background-color: #f9f9f9;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    transition: all 0.3s ease;
+    text-align: center;
+    position: relative;
+}
+
+.tab-button:hover:not(:disabled) {
+    background-color: #f0f0f0;
+    color: #9b4dca;
+}
+
+.tab-button.active {
+    background-color: #fff;
+    color: #9b4dca;
+    border-bottom-color: #9b4dca;
+    font-weight: 700;
+}
+
+.tab-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Debug buttons for Dropbox */
+.debug-buttons {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 5px;
+}
+
+.debug-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.test-btn {
+    background-color: #ff6b6b;
+}
+
+.test-btn:hover:not(:disabled) {
+    background-color: #ff5252;
+}
+
+.debug-btn-main {
+    background-color: #6c5ce7;
+}
+
+.debug-btn-main:hover:not(:disabled) {
+    background-color: #5f3dc4;
+}
+
+.download-btn {
+    background-color: #00b894;
+}
+
+.download-btn:hover:not(:disabled) {
+    background-color: #00a085;
+}
+
+.api-btn {
+    background-color: #fdcb6e;
+}
+
+.api-btn:hover:not(:disabled) {
+    background-color: #f39c12;
+}
+
+/* Search and Upload Container */
+.search-upload-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+.upload-button {
+    --background: #9b4dca;
+    --color: white;
+    --border-radius: 4px;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+    min-width: 150px;
+    flex-shrink: 0;
+}
+
+.upload-button:hover {
+    --background: #606c76;
+}
+
+.search-container {
+    flex: 1;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 15px;
+    padding-right: 40px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+    border-color: #9b4dca;
+    box-shadow: 0 0 0 2px rgba(155, 77, 202, 0.1);
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.clear-search-btn:hover {
+    background-color: #f0f0f0;
+    color: #666;
+}
+
+/* File List Container */
+.file-list-container {
+    flex: 1;
+    border: 1px solid #e1e1e1;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 350px;
+}
+
+.file-item {
+    --padding-start: 15px;
+    --padding-end: 15px;
+    --min-height: 60px;
+    border-bottom: 1px solid #e1e1e1;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-item:hover {
+    --background: #f5f5f5;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.file-date {
+    font-size: 12px;
+    color: #9b4dca;
+    font-weight: normal;
+}
+
+.file-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.action-icon {
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.action-icon:hover {
+    transform: scale(1.1);
+}
+
+/* Loading and Status Messages */
+.loading-message {
+    text-align: center;
+    color: #9b4dca;
+    font-style: italic;
+    padding: 20px;
+    border: 1px solid #e1e1e1;
+    border-radius: 4px;
+    background: #f9f9f9;
+    margin: 10px 0;
+}
+
+.no-files-message {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.no-results-message {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+}
+
+/* Close Button */
+.close-button {
+    --background: #606c76;
+    --color: white;
+    margin-top: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    .cloud-modal {
+        --width: 95vw;
+        --height: 85vh;
+    }
+
+    .tab-navigation {
+        margin-bottom: 15px;
+    }
+
+    .tab-button {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+
+    .search-upload-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .upload-button {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .debug-buttons {
+        position: static;
+        transform: none;
+        margin-top: 10px;
+        justify-content: center;
+    }
+
+    .file-actions {
+        gap: 5px;
+    }
+
+    .action-icon {
+        font-size: 18px;
+    }
+}
+
+
