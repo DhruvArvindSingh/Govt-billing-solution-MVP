@@ -21,6 +21,9 @@ import Menu from "../components/Menu/Menu";
 import Files from "../components/Files/Files";
 import Cloud from "../components/Cloud/Cloud";
 import NewFile from "../components/NewFile/NewFile";
+import Login from "../components/Login/Login";
+import SimpleModal from "../components/Login/SimpleModal";
+import ApiService from "../components/service/Apiservice";
 
 const Home: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
@@ -30,6 +33,9 @@ const Home: React.FC = () => {
   }>({ open: false, event: undefined });
   const [selectedFile, updateSelectedFile] = useState("default");
   const [billType, updateBillType] = useState(1);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   // const getDeviceType = () => {
   //   // Use Ionic's isPlatform for more reliable detection
   //   if (isPlatform("android")) {
@@ -85,11 +91,44 @@ const Home: React.FC = () => {
   useEffect(() => {
     const data = DATA["home"][device]["msc"];
     AppGeneral.initializeApp(JSON.stringify(data));
+    checkAuthStatus();
   }, []);
 
   useEffect(() => {
     activateFooter(billType);
   }, [billType]);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await ApiService.checkAuth();
+      if (response.success && response.authenticated) {
+        setIsLoggedIn(true);
+      }
+    } catch (error) {
+      console.log('Auth check failed:', error);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true);
+    setShowLoginModal(false);
+  };
+
+  const handleLogout = async () => {
+    setAuthLoading(true);
+    try {
+      const response = await ApiService.logout();
+      setIsLoggedIn(false);
+      alert('Successfully logged out!');
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      // Even if logout API fails, clear local state
+      setIsLoggedIn(false);
+      alert('Logged out successfully!');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const footers = DATA["home"][device]["footers"];
   const footersList = footers.map((footerArray) => {
@@ -115,17 +154,16 @@ const Home: React.FC = () => {
       <IonHeader>
         <IonToolbar color="primary">
           <IonTitle>{APP_NAME}</IonTitle>
-          <IonIcon
-            icon={settings}
+          <Login
             slot="end"
-            className="ion-padding-end"
-            size="large"
-            onClick={(e) => {
-              setShowPopover({ open: true, event: e.nativeEvent });
-              console.log("Popover clicked");
+            onLoginClick={() => {
+              console.log('Setting showLoginModal to true');
+              setShowLoginModal(true);
             }}
+            isLoggedIn={isLoggedIn}
+            loading={authLoading}
+            onLogout={handleLogout}
           />
-
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
@@ -197,6 +235,19 @@ const Home: React.FC = () => {
           <div id="workbookControl"></div>
           <div id="tableeditor"></div>
           <div id="msg"></div>
+        </div>
+
+        <SimpleModal
+          isOpen={showLoginModal}
+          onClose={() => {
+            console.log('Closing login modal');
+            setShowLoginModal(false);
+          }}
+          onLoginSuccess={handleLoginSuccess}
+        />
+
+        <div style={{ position: 'fixed', top: '10px', right: '10px', background: 'red', color: 'white', padding: '5px', zIndex: 99999 }}>
+          Modal Open: {showLoginModal ? 'YES' : 'NO'}
         </div>
       </IonContent>
     </IonPage>

@@ -3,6 +3,7 @@ import "./Cloud.css";
 import * as AppGeneral from "../socialcalc/index.js";
 import { DATA } from "../../app-data.js";
 import { Local } from "../Storage/LocalStorage";
+import ApiService from "../service/Apiservice";
 import {
     IonIcon,
     IonModal,
@@ -20,36 +21,6 @@ import {
     IonLoading,
 } from "@ionic/react";
 import { fileTrayFull, trash, create, cloudUpload, close } from "ionicons/icons";
-import {
-    S3Client,
-    PutObjectCommand,
-    ListObjectsV2Command,
-    GetObjectCommand,
-    DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import { Dropbox } from 'dropbox';
-
-// Environment variables for AWS and Dropbox
-const REGION = import.meta.env.VITE_REGION;
-const BUCKET = import.meta.env.VITE_BUCKET;
-const ACCESS_KEY = import.meta.env.VITE_ACCESS_KEY;
-const SECRET_KEY = import.meta.env.VITE_SECRET_KEY;
-const DROPBOX_ACCESS_TOKEN = import.meta.env.VITE_DROPBOX_ACCESS_TOKEN;
-
-// Initialize S3 client
-const s3 = ACCESS_KEY && SECRET_KEY ? new S3Client({
-    region: REGION,
-    credentials: {
-        accessKeyId: ACCESS_KEY,
-        secretAccessKey: SECRET_KEY,
-    },
-}) : null;
-
-// Initialize Dropbox client
-const dropbox = DROPBOX_ACCESS_TOKEN ? new Dropbox({
-    accessToken: DROPBOX_ACCESS_TOKEN,
-    fetch: fetch
-}) : null;
 
 const Cloud: React.FC<{
     store: Local;
@@ -69,59 +40,37 @@ const Cloud: React.FC<{
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
 
-    // Load files from S3
+    // Load files from S3 via API
     const loadFilesFromS3 = async () => {
-        if (!s3 || !BUCKET) {
-            setToastMessage('S3 configuration missing');
-            setShowToast(true);
-            return;
-        }
-
         setLoading(true);
         try {
-            const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET }));
-            const contents = data.Contents || [];
-
-            const filesObj: { [key: string]: number } = {};
-            contents.forEach(file => {
-                if (file.Key && file.LastModified) {
-                    filesObj[file.Key] = file.LastModified.getTime();
-                }
-            });
-
-            setS3Files(filesObj);
+            const response = await ApiService.listAllS3();
+            setS3Files(response.s3Files || {});
         } catch (err) {
             console.error('Failed to load files from S3', err);
-            setToastMessage('Failed to load files from S3');
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else {
+                setToastMessage('Failed to load files from S3');
+            }
             setShowToast(true);
         }
         setLoading(false);
     };
 
-    // Load files from Dropbox
+    // Load files from Dropbox via API
     const loadFilesFromDropbox = async () => {
-        if (!dropbox) {
-            setToastMessage('Dropbox configuration missing');
-            setShowToast(true);
-            return;
-        }
-
         setLoading(true);
         try {
-            const response = await dropbox.filesListFolder({ path: '' });
-            const files = response.result.entries || [];
-
-            const filesObj: { [key: string]: number } = {};
-            files.forEach(file => {
-                if (file['.tag'] === 'file') {
-                    filesObj[file.name] = new Date(file.client_modified).getTime();
-                }
-            });
-
-            setDropboxFiles(filesObj);
+            const response = await ApiService.listAllDropbox();
+            setDropboxFiles(response.dropboxFiles || {});
         } catch (err) {
             console.error('Failed to load files from Dropbox', err);
-            setToastMessage('Failed to load files from Dropbox');
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else {
+                setToastMessage('Failed to load files from Dropbox');
+            }
             setShowToast(true);
         }
         setLoading(false);
@@ -140,6 +89,29 @@ const Cloud: React.FC<{
     // Get current files based on active tab
     const getCurrentFiles = () => {
         return activeTab === 's3' ? s3Files : dropboxFiles;
+    };
+
+    // Test API connection
+    const testConnection = async () => {
+        try {
+            if (activeTab === 's3') {
+                await ApiService.listAllS3();
+                setToastMessage("S3 connection successful!");
+            } else {
+                await ApiService.listAllDropbox();
+                setToastMessage("Dropbox connection successful!");
+            }
+            setShowToast(true);
+        } catch (err) {
+            console.error("Connection test failed:", err);
+            if (err.response?.status === 401) {
+                setToastMessage("Authentication failed. Please login and try again.");
+            } else {
+                const provider = activeTab === 's3' ? 'S3' : 'Dropbox';
+                setToastMessage(`${provider} connection failed. Please check your configuration.`);
+            }
+            setShowToast(true);
+        }
     };
 
     // Upload current invoice to cloud
@@ -176,45 +148,43 @@ const Cloud: React.FC<{
         setLoading(false);
     };
 
-    // Save file to S3
+    // Save file to S3 via API
     const saveFileToS3 = async (fileName: string, content: string): Promise<boolean> => {
-        if (!s3 || !BUCKET) return false;
-
         try {
-            await s3.send(new PutObjectCommand({
-                Bucket: BUCKET,
-                Key: fileName,
-                Body: content,
-                ContentType: 'text/plain'
-            }));
-
+            await ApiService.uploadFileS3(fileName, content);
             await loadFilesFromS3();
             return true;
         } catch (err) {
             console.error('Failed to save file to S3', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+                setShowToast(true);
+            } else {
+                setToastMessage('Failed to save file to S3. Please try again.');
+                setShowToast(true);
+            }
             return false;
         }
     };
 
-    // Save file to Dropbox
+    // Save file to Dropbox via API
     const saveFileToDropbox = async (fileName: string, content: string): Promise<boolean> => {
-        if (!dropbox) return false;
-
         try {
-            const encoder = new TextEncoder();
-            const contentBuffer = encoder.encode(content);
-
-            await dropbox.filesUpload({
-                path: `/${fileName}`,
-                contents: contentBuffer,
-                mode: { '.tag': 'overwrite' },
-                autorename: true
-            });
-
+            await ApiService.uploadFileDropbox(fileName, content);
             await loadFilesFromDropbox();
             return true;
         } catch (err) {
             console.error('Failed to save file to Dropbox', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else if (err.response?.status === 403) {
+                setToastMessage('Permission denied. Your app may not have sufficient permissions.');
+            } else if (err.response?.status === 400) {
+                setToastMessage('Bad request. Please check the file name and content.');
+            } else {
+                setToastMessage('Failed to save file to Dropbox. Please try again.');
+            }
+            setShowToast(true);
             return false;
         }
     };
@@ -243,55 +213,85 @@ const Cloud: React.FC<{
         setLoading(false);
     };
 
-    // Get file from S3
+    // Get file from S3 via API
     const getFileFromS3 = async (key: string) => {
-        if (!s3 || !BUCKET) return null;
-
         try {
-            const response = await s3.send(new GetObjectCommand({
-                Bucket: BUCKET,
-                Key: key,
-            }));
+            console.log("Getting file from S3 via API:", key);
+            const response = await ApiService.getFileS3(key);
+            console.log("S3 API response:", response);
 
-            const content = await response.Body?.transformToString();
+            // Check if we have content in the response
+            if (!response) {
+                console.error("No response received from S3 API");
+                throw new Error("No response received from S3 API");
+            }
+
+            // Handle different possible response formats - ApiService now returns FileContent directly
+            let content = null;
+            if (response.content !== undefined) {
+                content = response.content;
+            } else if (typeof response === 'string') {
+                content = response;
+            } else {
+                console.error("Unexpected response format:", response);
+                throw new Error("Unexpected response format from S3 API");
+            }
+
+            if (content === null || content === undefined) {
+                console.error("No content found in response");
+                throw new Error("No file content received from S3");
+            }
+
+            console.log("Successfully extracted content, length:", content.length);
+
             return {
-                content: content || '',
+                content: content,
                 modified: s3Files[key] || Date.now(),
                 created: s3Files[key] || Date.now()
             };
         } catch (err) {
             console.error('Failed to get file from S3', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+                setShowToast(true);
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in S3.');
+                setShowToast(true);
+            }
             return null;
         }
     };
 
-    // Get file from Dropbox
+    // Get file from Dropbox via API
     const getFileFromDropbox = async (fileName: string) => {
-        if (!dropbox) return null;
-
         try {
-            const response = await dropbox.filesDownload({ path: `/${fileName}` });
-            let fileBinary = (response.result as any).fileBinary || (response.result as any).fileBlob;
+            console.log("Getting file from Dropbox via API:", fileName);
+            const response = await ApiService.getFileDropbox(fileName);
+            console.log("Dropbox API response:", response);
 
-            if (!fileBinary) {
-                throw new Error('No file content received from Dropbox');
+            // Check if we have content in the response
+            if (!response) {
+                console.error("No response received from Dropbox API");
+                throw new Error("No response received from Dropbox API");
             }
 
-            let content: string;
-            if (fileBinary instanceof ArrayBuffer) {
-                const decoder = new TextDecoder();
-                content = decoder.decode(fileBinary);
-            } else if (fileBinary instanceof Blob) {
-                content = await fileBinary.text();
-            } else if (typeof fileBinary === 'string') {
-                content = fileBinary;
-            } else if (fileBinary && typeof fileBinary.arrayBuffer === 'function') {
-                const arrayBuffer = await fileBinary.arrayBuffer();
-                const decoder = new TextDecoder();
-                content = decoder.decode(arrayBuffer);
+            // Handle different possible response formats - ApiService now returns FileContent directly
+            let content = null;
+            if (response.content !== undefined) {
+                content = response.content;
+            } else if (typeof response === 'string') {
+                content = response;
             } else {
-                throw new Error('Unexpected file format received from Dropbox');
+                console.error("Unexpected response format:", response);
+                throw new Error("Unexpected response format from Dropbox API");
             }
+
+            if (content === null || content === undefined) {
+                console.error("No content found in response");
+                throw new Error("No file content received from Dropbox");
+            }
+
+            console.log("Successfully extracted content, length:", content.length);
 
             return {
                 content: content,
@@ -300,6 +300,16 @@ const Cloud: React.FC<{
             };
         } catch (err) {
             console.error('Failed to get file from Dropbox', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in Dropbox. The file may have been moved or deleted.');
+            } else if (err.response?.status === 403) {
+                setToastMessage('Permission denied. Your app may not have read access to this file.');
+            } else {
+                setToastMessage('Failed to load file from Dropbox. Please check the console for details.');
+            }
+            setShowToast(true);
             return null;
         }
     };
@@ -333,34 +343,42 @@ const Cloud: React.FC<{
         setCurrentKey(null);
     };
 
-    // Delete from S3
+    // Delete from S3 via API
     const deleteFileFromS3 = async (key: string): Promise<boolean> => {
-        if (!s3 || !BUCKET) return false;
-
         try {
-            await s3.send(new DeleteObjectCommand({
-                Bucket: BUCKET,
-                Key: key
-            }));
-
+            await ApiService.deleteFileS3(key);
             await loadFilesFromS3();
             return true;
         } catch (err) {
             console.error('Failed to delete file from S3', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in S3.');
+            } else {
+                setToastMessage('Failed to delete file from S3. Please try again.');
+            }
+            setShowToast(true);
             return false;
         }
     };
 
-    // Delete from Dropbox
+    // Delete from Dropbox via API
     const deleteFileFromDropbox = async (fileName: string): Promise<boolean> => {
-        if (!dropbox) return false;
-
         try {
-            await dropbox.filesDeleteV2({ path: `/${fileName}` });
+            await ApiService.deleteFileDropbox(fileName);
             await loadFilesFromDropbox();
             return true;
         } catch (err) {
             console.error('Failed to delete file from Dropbox', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in Dropbox.');
+            } else {
+                setToastMessage('Failed to delete file from Dropbox. Please try again.');
+            }
+            setShowToast(true);
             return false;
         }
     };
@@ -436,6 +454,14 @@ const Cloud: React.FC<{
                             disabled={loading}
                         >
                             📦 Dropbox
+                        </button>
+                        <button
+                            className="test-connection-btn"
+                            onClick={testConnection}
+                            disabled={loading}
+                            title={`Test ${activeTab === 's3' ? 'S3' : 'Dropbox'} Connection`}
+                        >
+                            🔧 Test Connection
                         </button>
                     </div>
 

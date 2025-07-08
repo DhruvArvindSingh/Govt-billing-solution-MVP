@@ -1,7 +1,37 @@
-import axios from 'axios';
+import axios, { AxiosResponse, AxiosError } from 'axios';
 
 // Configure axios defaults
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8888';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888';
+
+// Type definitions for better type safety
+interface ApiResponse<T = any> {
+    success?: boolean;
+    data?: T;
+    message?: string;
+    error?: string;
+}
+
+interface S3File {
+    [fileName: string]: number; // timestamp
+}
+
+interface DropboxFile {
+    [fileName: string]: number; // timestamp
+}
+
+interface FileContent {
+    content: string;
+    fileName?: string;
+}
+
+interface AuthResponse {
+    success: boolean;
+    authenticated?: boolean;
+    token?: string;
+    user?: any;
+    message?: string;
+    error?: string;
+}
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -10,12 +40,16 @@ const apiClient = axios.create({
         'Content-Type': 'application/json',
     },
     withCredentials: true, // Include cookies in requests
+    timeout: 30000, // 30 second timeout
 });
 
 // Add request interceptor for debugging
 apiClient.interceptors.request.use(
     (config) => {
         console.log(`Making ${config.method?.toUpperCase()} request to:`, config.url);
+        if (config.data) {
+            console.log('Request data:', { ...config.data, content: config.data.content ? '[CONTENT_TRUNCATED]' : undefined });
+        }
         return config;
     },
     (error) => {
@@ -26,11 +60,20 @@ apiClient.interceptors.request.use(
 
 // Add response interceptor for error handling
 apiClient.interceptors.response.use(
-    (response) => {
+    (response: AxiosResponse) => {
+        console.log(`Response from ${response.config.url}:`, {
+            status: response.status,
+            data: response.data
+        });
         return response;
     },
-    (error) => {
-        console.error('API Error:', error.response?.data || error.message);
+    (error: AxiosError) => {
+        console.error('API Error:', {
+            url: error.config?.url,
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
 
         if (error.response?.status === 401) {
             // Handle unauthorized access
@@ -42,146 +85,234 @@ apiClient.interceptors.response.use(
 );
 
 class ApiService {
+    // Helper method to handle API responses consistently
+    private static handleApiResponse<T>(response: AxiosResponse<T>): T {
+        return response.data;
+    }
+
+    // Helper method to handle API errors consistently
+    private static handleApiError(error: any, operation: string): never {
+        console.error(`Failed to ${operation}:`, error);
+        throw error;
+    }
+
     // S3 Operations
-    static async listAllS3() {
+    static async listAllS3(): Promise<{ s3Files: S3File }> {
         try {
-            const response = await apiClient.post('/api/v1/listAllS3', {});
-            return response.data;
+            const response = await apiClient.post<{ s3Files: S3File }>('/api/v1/listAllS3', {});
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to list S3 files:', error);
-            throw error;
+            this.handleApiError(error, 'list S3 files');
         }
     }
 
-    static async getFileS3(fileName) {
+    static async getFileS3(fileName: string): Promise<FileContent> {
         try {
             console.log('Requesting S3 file:', fileName);
-            const response = await apiClient.post('/api/v1/getFileS3', { fileName });
+
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            const response = await apiClient.post<FileContent>('/api/v1/getFileS3', { fileName });
+
             console.log('Raw S3 API response:', response);
             console.log('Response data:', response.data);
             console.log('Response data type:', typeof response.data);
             console.log('Response data keys:', Object.keys(response.data || {}));
-            return response.data;
+
+            const data = this.handleApiResponse(response);
+
+            // Validate response has content
+            if (!data || (typeof data.content === 'undefined' && typeof data !== 'string')) {
+                throw new Error('No content received from S3 API');
+            }
+
+            return data;
         } catch (error) {
-            console.error('Failed to get S3 file:', error);
             console.error('Error response:', error.response?.data);
-            throw error;
+            this.handleApiError(error, 'get S3 file');
         }
     }
 
-    static async uploadFileS3(fileName, content) {
+    static async uploadFileS3(fileName: string, content: string): Promise<ApiResponse> {
         try {
-            const response = await apiClient.post('/api/v1/uploadFileS3', {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            if (typeof content !== 'string') {
+                throw new Error('Invalid content provided - must be string');
+            }
+
+            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileS3', {
                 fileName,
                 content
             });
-            return response.data;
+
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to upload S3 file:', error);
-            throw error;
+            this.handleApiError(error, 'upload S3 file');
         }
     }
 
-    static async deleteFileS3(fileName) {
+    static async deleteFileS3(fileName: string): Promise<ApiResponse> {
         try {
-            const response = await apiClient.post('/api/v1/deleteFileS3', { fileName });
-            return response.data;
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            const response = await apiClient.post<ApiResponse>('/api/v1/deleteFileS3', { fileName });
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to delete S3 file:', error);
-            throw error;
+            this.handleApiError(error, 'delete S3 file');
         }
     }
 
     // Dropbox Operations
-    static async listAllDropbox() {
+    static async listAllDropbox(): Promise<{ dropboxFiles: DropboxFile }> {
         try {
-            const response = await apiClient.post('/api/v1/listAllDropbox', {});
-            return response.data;
+            const response = await apiClient.post<{ dropboxFiles: DropboxFile }>('/api/v1/listAllDropbox', {});
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to list Dropbox files:', error);
-            throw error;
+            this.handleApiError(error, 'list Dropbox files');
         }
     }
 
-    static async getFileDropbox(fileName) {
+    static async getFileDropbox(fileName: string): Promise<FileContent> {
         try {
             console.log('Requesting Dropbox file:', fileName);
-            const response = await apiClient.post('/api/v1/getFileDropbox', { fileName });
+
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            const response = await apiClient.post<FileContent>('/api/v1/getFileDropbox', { fileName });
+
             console.log('Raw Dropbox API response:', response);
             console.log('Response data:', response.data);
             console.log('Response data type:', typeof response.data);
             console.log('Response data keys:', Object.keys(response.data || {}));
-            return response.data;
+
+            const data = this.handleApiResponse(response);
+
+            // Validate response has content
+            if (!data || (typeof data.content === 'undefined' && typeof data !== 'string')) {
+                throw new Error('No content received from Dropbox API');
+            }
+
+            return data;
         } catch (error) {
-            console.error('Failed to get Dropbox file:', error);
             console.error('Error response:', error.response?.data);
-            throw error;
+            this.handleApiError(error, 'get Dropbox file');
         }
     }
 
-    static async uploadFileDropbox(fileName, content) {
+    static async uploadFileDropbox(fileName: string, content: string): Promise<ApiResponse> {
         try {
-            const response = await apiClient.post('/api/v1/uploadFileDropbox', {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            if (typeof content !== 'string') {
+                throw new Error('Invalid content provided - must be string');
+            }
+
+            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileDropbox', {
                 fileName,
                 content
             });
-            return response.data;
+
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to upload Dropbox file:', error);
-            throw error;
+            this.handleApiError(error, 'upload Dropbox file');
         }
     }
 
-    static async deleteFileDropbox(fileName) {
+    static async deleteFileDropbox(fileName: string): Promise<ApiResponse> {
         try {
-            const response = await apiClient.post('/api/v1/deleteFileDropbox', { fileName });
-            return response.data;
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            const response = await apiClient.post<ApiResponse>('/api/v1/deleteFileDropbox', { fileName });
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to delete Dropbox file:', error);
-            throw error;
+            this.handleApiError(error, 'delete Dropbox file');
         }
     }
 
-    // Authentication (if needed)
-    static async signup(userData) {
+    // Authentication Operations
+    static async signup(userData: any): Promise<AuthResponse> {
         try {
-            const response = await apiClient.post('/api/v1/signup', userData);
-            return response.data;
+            if (!userData || typeof userData !== 'object') {
+                throw new Error('Invalid user data provided');
+            }
+
+            const response = await apiClient.post<AuthResponse>('/api/v1/signup', userData);
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to signup:', error);
-            throw error;
+            this.handleApiError(error, 'signup');
         }
     }
 
-    static async signin(credentials) {
+    static async signin(credentials: any): Promise<AuthResponse> {
         try {
-            const response = await apiClient.post('/api/v1/signin', credentials);
-            return response.data;
+            if (!credentials || typeof credentials !== 'object') {
+                throw new Error('Invalid credentials provided');
+            }
+
+            const response = await apiClient.post<AuthResponse>('/api/v1/signin', credentials);
+            return this.handleApiResponse(response);
         } catch (error) {
-            console.error('Failed to signin:', error);
-            throw error;
+            this.handleApiError(error, 'signin');
         }
     }
 
-    static async logout() {
+    static async logout(): Promise<AuthResponse> {
         try {
-            const response = await apiClient.post('/api/v1/logout', {});
-            return response.data;
+            const response = await apiClient.post<AuthResponse>('/api/v1/logout', {});
+            return this.handleApiResponse(response);
         } catch (error) {
             console.error('Failed to logout:', error);
             // Don't throw error for logout - we still want to clear local state
-            return { success: false, error: error.message };
+            return {
+                success: false,
+                error: error.message || 'Logout failed',
+                authenticated: false
+            };
         }
     }
 
     // Check if user is authenticated by making a test API call
-    static async checkAuth() {
+    static async checkAuth(): Promise<AuthResponse> {
         try {
-            const response = await apiClient.post('/api/v1/checkAuth', {});
-            return response.data;
+            const response = await apiClient.post<AuthResponse>('/api/v1/checkAuth', {});
+            return this.handleApiResponse(response);
         } catch (error) {
             console.error('Auth check failed:', error);
-            return { success: false, authenticated: false };
+            return {
+                success: false,
+                authenticated: false,
+                error: error.message || 'Auth check failed'
+            };
+        }
+    }
+
+    // Utility method to check if the API is reachable
+    static async healthCheck(): Promise<{ status: string; timestamp: number }> {
+        try {
+            const response = await apiClient.get<{ status: string }>('/api/v1/health');
+            return {
+                ...this.handleApiResponse(response),
+                timestamp: Date.now()
+            };
+        } catch (error) {
+            console.error('Health check failed:', error);
+            return {
+                status: 'error',
+                timestamp: Date.now()
+            };
         }
     }
 }
