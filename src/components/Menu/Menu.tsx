@@ -5,7 +5,7 @@ import { isPlatform, IonToast } from "@ionic/react";
 import { EmailComposer } from "capacitor-email-composer";
 import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert } from "@ionic/react";
-import { saveOutline, save, mail, print, download, shield } from "ionicons/icons";
+import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline } from "ionicons/icons";
 import { APP_NAME } from "../../app-data.js";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -779,7 +779,7 @@ const Menu: React.FC<{
           },
           {
             text: "Save As",
-            icon: save,
+            icon: documentText,
             handler: () => {
               setShowAlert3(true);
               console.log("Save As clicked");
@@ -787,7 +787,7 @@ const Menu: React.FC<{
           },
           {
             text: "Save As Protected",
-            icon: shield,
+            icon: lockClosed,
             handler: () => {
               setShowPasswordModal(true);
               console.log("Save As Protected clicked");
@@ -811,7 +811,7 @@ const Menu: React.FC<{
           },
           {
             text: "Export as CSV",
-            icon: download,
+            icon: documentsOutline,
             handler: () => {
               exportAsCsv();
               console.log("Download CSV clicked");
@@ -819,7 +819,7 @@ const Menu: React.FC<{
           },
           {
             text: "Export as PDF",
-            icon: download,
+            icon: documentOutline,
             handler: () => {
               exportAsPdf();
               console.log("Download PDF clicked");
@@ -827,7 +827,7 @@ const Menu: React.FC<{
           },
           {
             text: "Export Workbook as PDF",
-            icon: download,
+            icon: layersOutline,
             handler: () => {
               exportWorkbookAsPdf();
               console.log("Export Workbook as PDF clicked");

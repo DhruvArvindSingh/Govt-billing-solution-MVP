@@ -6,7 +6,6 @@ import {
   IonHeader,
   IonIcon,
   IonPage,
-  IonPopover,
   IonTitle,
   IonToolbar,
   isPlatform,
@@ -18,7 +17,7 @@ import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
 import { useEffect, useState } from "react";
 import { Local } from "../components/Storage/LocalStorage";
-import { menu, settings } from "ionicons/icons";
+import { menu, arrowUndo, arrowRedo } from "ionicons/icons";
 import "./Home.css";
 import Menu from "../components/Menu/Menu";
 import Files from "../components/Files/Files";
@@ -30,10 +29,6 @@ import ApiService from "../components/service/Apiservice";
 
 const Home: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
-  const [showPopover, setShowPopover] = useState<{
-    open: boolean;
-    event: Event | undefined;
-  }>({ open: false, event: undefined });
   const [selectedFile, updateSelectedFile] = useState("default");
   const [billType, updateBillType] = useState(1);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -154,21 +149,25 @@ const Home: React.FC = () => {
       </IonHeader>
       <IonContent fullscreen>
         <IonToolbar color="primary">
+          <IonIcon
+            icon={arrowUndo}
+            size="large"
+            onClick={() => AppGeneral.undo()}
+            className="ion-padding-end"
+            slot="end"
+          />
+          <IonIcon
+            icon={arrowRedo}
+            size="large"
+            onClick={() => AppGeneral.redo()}
+            className="ion-padding-end"
+            slot="end"
+          />
           <Cloud
             store={store}
             file={selectedFile}
             updateSelectedFile={updateSelectedFile}
             updateBillType={updateBillType}
-          />
-          <IonIcon
-            icon={settings}
-            slot="end"
-            className="ion-padding-end"
-            size="large"
-            onClick={(e) => {
-              setShowPopover({ open: true, event: e.nativeEvent });
-              console.log("Popover clicked");
-            }}
           />
           <Files
             store={store}
@@ -186,17 +185,6 @@ const Home: React.FC = () => {
             currentFilePassword={currentFilePassword}
             setCurrentFilePassword={setCurrentFilePassword}
           />
-          <IonPopover
-            animated
-            keyboardClose
-            backdropDismiss
-            event={showPopover.event}
-            isOpen={showPopover.open}
-            onDidDismiss={() =>
-              setShowPopover({ open: false, event: undefined })
-            }
-          >
-          </IonPopover>
         </IonToolbar>
         <IonToolbar color="secondary">
           <IonGrid>
@@ -211,7 +199,6 @@ const Home: React.FC = () => {
                     onClick={() => {
                       updateBillType(footerArray.index);
                       activateFooter(footerArray.index);
-                      setShowPopover({ open: false, event: undefined });
                     }}
                   >
                     {footerArray.name}

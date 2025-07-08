@@ -20,7 +20,7 @@ import {
     IonToast,
     IonLoading,
 } from "@ionic/react";
-import { fileTrayFull, trash, create, cloudUpload, close } from "ionicons/icons";
+import { cloud, trash, create, cloudUpload, close } from "ionicons/icons";
 
 const Cloud: React.FC<{
     store: Local;
@@ -413,7 +413,7 @@ const Cloud: React.FC<{
     return (
         <React.Fragment>
             <IonIcon
-                icon={fileTrayFull}
+                icon={cloud}
                 className="ion-padding-end"
                 slot="end"
                 size="large"
