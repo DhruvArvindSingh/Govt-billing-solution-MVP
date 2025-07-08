@@ -36,6 +36,7 @@ const Home: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [currentFilePassword, setCurrentFilePassword] = useState<string | null>(null);
   // const getDeviceType = () => {
   //   // Use Ionic's isPlatform for more reliable detection
   //   if (isPlatform("android")) {
@@ -189,6 +190,7 @@ const Home: React.FC = () => {
             file={selectedFile}
             updateSelectedFile={updateSelectedFile}
             updateBillType={updateBillType}
+            setCurrentFilePassword={setCurrentFilePassword}
           />
 
           <NewFile
@@ -196,6 +198,8 @@ const Home: React.FC = () => {
             updateSelectedFile={updateSelectedFile}
             store={store}
             billType={billType}
+            currentFilePassword={currentFilePassword}
+            setCurrentFilePassword={setCurrentFilePassword}
           />
           <IonPopover
             animated
@@ -229,6 +233,8 @@ const Home: React.FC = () => {
           updateSelectedFile={updateSelectedFile}
           store={store}
           bT={billType}
+          currentFilePassword={currentFilePassword}
+          setCurrentFilePassword={setCurrentFilePassword}
         />
 
         <div id="container">

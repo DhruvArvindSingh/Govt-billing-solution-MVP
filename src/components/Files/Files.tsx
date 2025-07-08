@@ -13,25 +13,77 @@ import {
   IonAlert,
   IonItemGroup,
 } from "@ionic/react";
-import { fileTrayFull, trash, create } from "ionicons/icons";
+import { fileTrayFull, trash, create, shield } from "ionicons/icons";
+import PasswordModal from "../PasswordModal/PasswordModal";
 
 const Files: React.FC<{
   store: Local;
   file: string;
   updateSelectedFile: Function;
   updateBillType: Function;
+  setCurrentFilePassword?: Function;
 }> = (props) => {
   const [modal, setModal] = useState(null);
   const [listFiles, setListFiles] = useState(false);
   const [showAlert1, setShowAlert1] = useState(false);
   const [currentKey, setCurrentKey] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [protectedFileName, setProtectedFileName] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const editFile = (key) => {
     props.store._getFile(key).then((data) => {
       AppGeneral.viewFile(key, decodeURIComponent((data as any).content));
       props.updateSelectedFile(key);
       props.updateBillType((data as any).billType);
+      // Clear password since this is a regular file
+      if (props.setCurrentFilePassword) {
+        props.setCurrentFilePassword(null);
+      }
     });
+  };
+
+  const editProtectedFile = async (key: string, password: string): Promise<boolean> => {
+    try {
+      setPasswordError("");
+      const data = await props.store._getProtectedFile(key, password);
+      AppGeneral.viewFile(key, decodeURIComponent(data.content));
+      props.updateSelectedFile(key);
+      props.updateBillType(data.billType);
+
+      // Store password in parent component for future saves
+      if (props.setCurrentFilePassword) {
+        props.setCurrentFilePassword(password);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error opening protected file:", error);
+      setPasswordError("Incorrect password or corrupted file. Please try again.");
+      return false;
+    }
+  };
+
+  const handleFileClick = async (key) => {
+    try {
+      // First check if it's a protected file
+      const fileData = await props.store._getFile(key);
+
+      if (props.store.isProtectedFile(fileData.content)) {
+        // It's a protected file, show password modal
+        setProtectedFileName(key);
+        setShowPasswordModal(true);
+      } else {
+        // Regular file, open normally
+        setListFiles(false);
+        editFile(key);
+      }
+    } catch (error) {
+      console.error("Error checking file:", error);
+      // If there's an error, try to open as regular file
+      setListFiles(false);
+      editFile(key);
+    }
   };
 
   const deleteFile = (key) => {
@@ -49,13 +101,33 @@ const Files: React.FC<{
     return new Date(date).toLocaleString();
   };
 
+  const isProtectedFile = async (key: string): Promise<boolean> => {
+    try {
+      const fileData = await props.store._getFile(key);
+      return props.store.isProtectedFile(fileData.content);
+    } catch (error) {
+      return false;
+    }
+  };
+
   const temp = async () => {
     const files = await props.store._getAllFiles();
-    const fileList = Object.keys(files).map((key) => {
+    const fileListPromises = Object.keys(files).map(async (key) => {
+      const isProtected = await isProtectedFile(key);
+
       return (
         <IonItemGroup key={key}>
           <IonItem>
-            <IonLabel>{key}</IonLabel>
+            <IonLabel>
+              {isProtected && (
+                <IonIcon
+                  icon={shield}
+                  color="primary"
+                  style={{ marginRight: '8px', fontSize: '16px' }}
+                />
+              )}
+              {key}
+            </IonLabel>
             {_formatDate(files[key])}
 
             <IonIcon
@@ -63,10 +135,7 @@ const Files: React.FC<{
               color="warning"
               slot="end"
               size="large"
-              onClick={() => {
-                setListFiles(false);
-                editFile(key);
-              }}
+              onClick={() => handleFileClick(key)}
             />
 
             <IonIcon
@@ -83,6 +152,8 @@ const Files: React.FC<{
         </IonItemGroup>
       );
     });
+
+    const fileList = await Promise.all(fileListPromises);
 
     const ourModal = (
       <IonModal isOpen={listFiles} onDidDismiss={() => setListFiles(false)}>
@@ -134,6 +205,25 @@ const Files: React.FC<{
             },
           },
         ]}
+      />
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setProtectedFileName("");
+          setPasswordError("");
+        }}
+        onSubmit={async (name: string, password: string) => {
+          const success = await editProtectedFile(protectedFileName, password);
+          if (success) {
+            setListFiles(false);
+          }
+          return success;
+        }}
+        title="Enter Password"
+        submitText="Open File"
+        showNameField={false}
+        passwordError={passwordError}
       />
     </React.Fragment>
   );

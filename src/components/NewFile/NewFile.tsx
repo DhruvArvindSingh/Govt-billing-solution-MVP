@@ -10,22 +10,41 @@ const NewFile: React.FC<{
   updateSelectedFile: Function;
   store: Local;
   billType: number;
+  currentFilePassword?: string | null;
+  setCurrentFilePassword?: Function;
 }> = (props) => {
   const [showAlertNewFileCreated, setShowAlertNewFileCreated] = useState(false);
-  const newFile = () => {
+  const newFile = async () => {
     if (props.file !== "default") {
-      const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
-      const data = props.store._getFile(props.file);
-      const file = new File(
-        (data as any).created,
-        new Date().toString(),
-        content,
-        props.file,
-        props.billType
-      );
-      props.store._saveFile(file);
-      props.updateSelectedFile(props.file);
+      try {
+        const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
+        const data = await props.store._getFile(props.file);
+        const file = new File(
+          (data as any).created,
+          new Date().toString(),
+          content,
+          props.file,
+          props.billType
+        );
+
+        // Check if current file is protected and save accordingly
+        if (props.currentFilePassword && props.store.isProtectedFile((data as any).content)) {
+          await props.store._saveProtectedFile(file, props.currentFilePassword);
+        } else {
+          await props.store._saveFile(file);
+        }
+
+        props.updateSelectedFile(props.file);
+      } catch (error) {
+        console.error("Error saving current file before creating new one:", error);
+      }
     }
+
+    // Clear password since we're creating a new default file
+    if (props.setCurrentFilePassword) {
+      props.setCurrentFilePassword(null);
+    }
+
     const msc = DATA["home"][AppGeneral.getDeviceType()]["msc"];
     AppGeneral.viewFile("default", JSON.stringify(msc));
     props.updateSelectedFile("default");

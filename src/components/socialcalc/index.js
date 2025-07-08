@@ -338,6 +338,58 @@ export function getAllHTMLContent(sheetdata) {
   return SocialCalc.WorkbookControlCreateSheetHTML(appsheets);
 }
 
+export function getAllSheetsHTML() {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  var appsheets = {};
+
+  // Get all sheets from the workbook
+  for (var sheetId in control.workbook.sheetArr) {
+    appsheets[sheetId] = sheetId;
+  }
+
+  return SocialCalc.WorkbookControlCreateSheetHTML(appsheets);
+}
+
+export function getAllSheetsCSV() {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  var csvData = [];
+
+  // Collect all sheets and their data
+  for (var sheetId in control.workbook.sheetArr) {
+    var sheet = control.workbook.sheetArr[sheetId].sheet;
+
+    // Get the sheet save string and convert to CSV
+    var saveStr = sheet.CreateSheetSave();
+    var csvContent = SocialCalc.ConvertSaveToOtherFormat(saveStr, "csv", false);
+
+    csvData.push({
+      name: sheet.sheetname || sheetId,
+      csv: csvContent
+    });
+  }
+
+  return csvData;
+}
+
+export function getWorkbookInfo() {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  var sheets = [];
+
+  for (var sheetId in control.workbook.sheetArr) {
+    var sheet = control.workbook.sheetArr[sheetId].sheet;
+    sheets.push({
+      id: sheetId,
+      name: sheet.sheetname || sheetId
+    });
+  }
+
+  return {
+    sheets: sheets,
+    currentSheet: control.currentSheetButton.id,
+    numSheets: sheets.length
+  };
+}
+
 export function saveAs() {
   return new Promise(function (resolve, reject) {
     navigator.notification.prompt(

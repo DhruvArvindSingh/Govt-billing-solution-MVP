@@ -5,12 +5,286 @@ import { isPlatform, IonToast } from "@ionic/react";
 import { EmailComposer } from "capacitor-email-composer";
 import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert } from "@ionic/react";
-import { saveOutline, save, mail, print, download } from "ionicons/icons";
+import { saveOutline, save, mail, print, download, shield } from "ionicons/icons";
 import { APP_NAME } from "../../app-data.js";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import PasswordModal from '../PasswordModal/PasswordModal';
+// import JSZip from 'jszip'; // Will be added later for zip functionality
+
+// Function to export all sheets as PDF
+const exportWorkbookAsPdf = async () => {
+  // Create loading overlay
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.id = 'pdf-export-loading';
+  loadingOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    color: white;
+    font-family: Arial, sans-serif;
+  `;
+
+  const spinner = document.createElement('div');
+  spinner.style.cssText = `
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  `;
+
+  const loadingText = document.createElement('div');
+  loadingText.style.cssText = `
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+  `;
+  loadingText.textContent = 'Exporting Workbook as PDF...';
+
+  const progressText = document.createElement('div');
+  progressText.id = 'export-progress';
+  progressText.style.cssText = `
+    font-size: 14px;
+    margin-top: 10px;
+    text-align: center;
+  `;
+  progressText.textContent = 'Preparing export...';
+
+  // Add CSS animation for spinner
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  loadingOverlay.appendChild(spinner);
+  loadingOverlay.appendChild(loadingText);
+  loadingOverlay.appendChild(progressText);
+  document.body.appendChild(loadingOverlay);
+
+  // Disable spreadsheet editing
+  const spreadsheetContainer = document.getElementById('te_fullgrid');
+  const originalPointerEvents = spreadsheetContainer?.style.pointerEvents || '';
+  if (spreadsheetContainer) {
+    spreadsheetContainer.style.pointerEvents = 'none';
+    spreadsheetContainer.style.opacity = '0.7';
+  }
+
+  try {
+    console.log('Starting workbook PDF export...');
+
+    const updateProgress = (message) => {
+      const progressElement = document.getElementById('export-progress');
+      if (progressElement) {
+        progressElement.textContent = message;
+      }
+    };
+
+    updateProgress('Checking sheet navigation...');
+
+    // Use the activateFooterButton function from AppGeneral (socialcalc)
+    if (!AppGeneral.activateFooterButton) {
+      alert('activateFooterButton function not found. Sheet navigation unavailable.');
+      return;
+    }
+
+    // Determine number of sheets based on app data structure
+    // Typical bill types: Type1, Type2, Type3, Detail1, Detail2 (5 sheets for mobile) or 4 for tablet
+    const numSheets = 5; // We'll try up to 5 sheets and handle errors gracefully
+
+    console.log('Using AppGeneral.activateFooterButton approach for', numSheets, 'sheets');
+    updateProgress('Initializing PDF creation...');
+
+    // Create PDF
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    let isFirstPage = true;
+
+    for (let i = 1; i <= numSheets; i++) {
+      const sheetName = `Sheet ${i}`;
+
+      console.log(`Processing sheet ${i}/${numSheets}: ${sheetName}`);
+      updateProgress(`Processing ${sheetName} (${i}/${numSheets})...`);
+
+      if (!isFirstPage) {
+        pdf.addPage();
+      }
+      isFirstPage = false;
+
+      try {
+        // Use activateFooterButton to switch to this sheet
+        console.log(`Switching to sheet ${i}`);
+        updateProgress(`Switching to ${sheetName}...`);
+        AppGeneral.activateFooterButton(i);
+
+        // Wait for the sheet to render
+        updateProgress(`Rendering ${sheetName}...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Get the rendered spreadsheet content from DOM
+        const spreadsheetContainer = document.getElementById('te_fullgrid');
+
+        if (!spreadsheetContainer) {
+          throw new Error('Spreadsheet container not found');
+        }
+
+        console.log(`Capturing sheet content for: ${sheetName}`);
+        updateProgress(`Capturing content for ${sheetName}...`);
+
+        // Ensure the spreadsheet is fully rendered
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Create canvas from the rendered spreadsheet
+        updateProgress(`Creating image for ${sheetName}...`);
+        const canvas = await html2canvas(spreadsheetContainer, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          scale: 1.5, // Higher scale for better quality
+          logging: false,
+          width: spreadsheetContainer.scrollWidth,
+          height: spreadsheetContainer.scrollHeight,
+          foreignObjectRendering: false,
+          imageTimeout: 0,
+          removeContainer: false
+        } as any);
+
+        console.log(`Canvas created for ${sheetName}: ${canvas.width}x${canvas.height}`);
+
+        // Add header with sheet name
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(`${sheetName}`, 20, 20);
+
+        // Calculate dimensions for A4 landscape with header space
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = 297; // A4 landscape width
+        const pdfHeight = 210; // A4 landscape height
+        const margin = 15;
+        const headerSpace = 25;
+        const availableWidth = pdfWidth - (margin * 2);
+        const availableHeight = pdfHeight - headerSpace - margin;
+
+        // Scale to fit the page
+        const scaleX = availableWidth / canvas.width;
+        const scaleY = availableHeight / canvas.height;
+        const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+
+        const imgWidth = canvas.width * scale;
+        const imgHeight = canvas.height * scale;
+
+        // Center the image horizontally
+        const xPos = (pdfWidth - imgWidth) / 2;
+        const yPos = headerSpace; // Below the header
+
+        // Add the sheet image to PDF
+        updateProgress(`Adding ${sheetName} to PDF...`);
+        pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
+
+        console.log(`Sheet ${i} added to PDF successfully`);
+
+      } catch (error) {
+        console.error(`Error processing sheet ${i}:`, error);
+        // Add error message to PDF
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(`Sheet ${i}`, 20, 20);
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'normal');
+        pdf.text(`Error rendering sheet: ${error.message}`, 20, 40);
+      }
+    }
+
+    // Return to first sheet
+    updateProgress('Returning to first sheet...');
+    console.log('Returning to first sheet');
+    AppGeneral.activateFooterButton(1);
+
+    // Generate filename
+    updateProgress('Generating PDF file...');
+    const currentDate = new Date().toISOString().split('T')[0];
+    const filename = `Workbook_${currentDate}.pdf`;
+
+    // Save PDF
+    if (isPlatform('hybrid')) {
+      updateProgress('Preparing file for mobile sharing...');
+      // Mobile - save and share
+      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: pdfBase64,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8
+      });
+
+      await Share.share({
+        title: 'Export Workbook PDF',
+        text: `${APP_NAME} - ${filename}`,
+        url: result.uri,
+        dialogTitle: 'Share Workbook PDF'
+      });
+
+      console.log('Workbook PDF exported and shared successfully');
+    } else {
+      // Web - direct download
+      updateProgress('Downloading PDF file...');
+      pdf.save(filename);
+      console.log('Workbook PDF downloaded successfully');
+    }
+
+    updateProgress('Export completed successfully!');
+    setTimeout(() => {
+      alert(`Workbook exported as PDF successfully!\n\nExported ${numSheets} sheets`);
+    }, 500);
+
+  } catch (error) {
+    console.error('Error in workbook PDF export:', error);
+    alert(`Error exporting workbook: ${error.message}`);
+  } finally {
+    // Clean up: Remove loading overlay and restore spreadsheet editing
+    const loadingElement = document.getElementById('pdf-export-loading');
+    if (loadingElement) {
+      loadingElement.remove();
+    }
+
+    // Restore spreadsheet editing
+    const spreadsheetContainer = document.getElementById('te_fullgrid');
+    if (spreadsheetContainer) {
+      spreadsheetContainer.style.pointerEvents = originalPointerEvents;
+      spreadsheetContainer.style.opacity = '1';
+    }
+
+    // Remove the animation style
+    const styleElements = document.querySelectorAll('style');
+    styleElements.forEach(style => {
+      if (style.textContent?.includes('@keyframes spin')) {
+        style.remove();
+      }
+    });
+  }
+};
+
+
 
 const Menu: React.FC<{
   showM: boolean;
@@ -19,6 +293,8 @@ const Menu: React.FC<{
   updateSelectedFile: Function;
   store: Local;
   bT: number;
+  currentFilePassword?: string | null;
+  setCurrentFilePassword?: Function;
 }> = (props) => {
   const [showAlert1, setShowAlert1] = useState(false);
   const [showAlert2, setShowAlert2] = useState(false);
@@ -28,6 +304,9 @@ const Menu: React.FC<{
   const [toastMessage, setToastMessage] = useState("");
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [nameError, setNameError] = useState("");
   /* Utility functions */
   const _validateName = async (filename) => {
     filename = filename.trim();
@@ -74,23 +353,40 @@ const Menu: React.FC<{
       printWindow.print();
     }
   };
-  const doSave = () => {
+  const doSave = async () => {
     if (props.file === "default") {
       setShowAlert1(true);
       return;
     }
-    const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
-    const data = props.store._getFile(props.file);
-    const file = new File(
-      (data as any).created,
-      new Date().toString(),
-      content,
-      props.file,
-      props.bT
-    );
-    props.store._saveFile(file);
-    props.updateSelectedFile(props.file);
-    setShowAlert2(true);
+
+    try {
+      const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
+      const data = await props.store._getFile(props.file);
+
+      const file = new File(
+        (data as any).created,
+        new Date().toString(),
+        content,
+        props.file,
+        props.bT
+      );
+
+      // Check if current file is password protected and we have the password
+      if (props.currentFilePassword && props.store.isProtectedFile((data as any).content)) {
+        // Save as protected file with the same password
+        await props.store._saveProtectedFile(file, props.currentFilePassword);
+        console.log("Protected file saved with encryption");
+      } else {
+        // Save as regular file
+        await props.store._saveFile(file);
+      }
+
+      props.updateSelectedFile(props.file);
+      setShowAlert2(true);
+    } catch (error) {
+      console.error("Error saving file:", error);
+      alert("Error saving file. Please try again.");
+    }
   };
 
   const doSaveAs = async (filename) => {
@@ -112,10 +408,62 @@ const Menu: React.FC<{
         // console.log(JSON.stringify(data));
         props.store._saveFile(file);
         props.updateSelectedFile(filename);
+
+        // Clear password since this is a new unprotected file
+        if (props.setCurrentFilePassword) {
+          props.setCurrentFilePassword(null);
+        }
+
         setShowAlert4(true);
       } else {
         setShowToast1(true);
       }
+    }
+  };
+
+  const doSaveAsProtected = async (name: string, password: string): Promise<boolean> => {
+    try {
+      setNameError("");
+      setPasswordError("");
+
+      // Check if filename already exists
+      if (await props.store._checkKey(name)) {
+        setNameError("A file with same filename already exists");
+        return false;
+      }
+
+      // Get current spreadsheet content
+      const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
+
+      // Create new protected file
+      const file = new File(
+        new Date().toString(),
+        new Date().toString(),
+        content,
+        name,
+        props.bT
+      );
+
+      // Save with encryption
+      await props.store._saveProtectedFile(file, password);
+
+      // Update selected file
+      props.updateSelectedFile(name);
+
+      // Store password for future saves of this file
+      if (props.setCurrentFilePassword) {
+        props.setCurrentFilePassword(password);
+      }
+
+      // Show success message
+      setSuccessMessage(`Protected file "${name}" saved successfully!`);
+      setShowSuccessToast(true);
+
+      return true;
+    } catch (error) {
+      console.error("Error saving protected file:", error);
+      setPasswordError("Failed to save protected file. Please try again.");
+      return false;
     }
   };
 
@@ -438,6 +786,14 @@ const Menu: React.FC<{
             },
           },
           {
+            text: "Save As Protected",
+            icon: shield,
+            handler: () => {
+              setShowPasswordModal(true);
+              console.log("Save As Protected clicked");
+            },
+          },
+          {
             text: "Print",
             icon: print,
             handler: () => {
@@ -467,6 +823,14 @@ const Menu: React.FC<{
             handler: () => {
               exportAsPdf();
               console.log("Download PDF clicked");
+            },
+          },
+          {
+            text: "Export Workbook as PDF",
+            icon: download,
+            handler: () => {
+              exportWorkbookAsPdf();
+              console.log("Export Workbook as PDF clicked");
             },
           },
         ]}
@@ -541,6 +905,20 @@ const Menu: React.FC<{
         message={successMessage}
         duration={3000}
         color="success"
+      />
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setNameError("");
+          setPasswordError("");
+        }}
+        onSubmit={doSaveAsProtected}
+        title="Save As Protected"
+        submitText="Save Protected"
+        showNameField={true}
+        nameError={nameError}
+        passwordError={passwordError}
       />
     </React.Fragment>
   );
