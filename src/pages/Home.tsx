@@ -15,7 +15,7 @@ import {
 } from "@ionic/react";
 import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Local } from "../components/Storage/LocalStorage";
 import { menu, arrowUndo, arrowRedo } from "ionicons/icons";
 import "./Home.css";
@@ -26,6 +26,12 @@ import NewFile from "../components/NewFile/NewFile";
 import Login from "../components/Login/Login";
 import SimpleModal from "../components/Login/SimpleModal";
 import ApiService from "../components/service/Apiservice";
+
+interface FooterItem {
+  name: string;
+  index: number;
+  isActive: boolean;
+}
 
 const Home: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
@@ -38,39 +44,31 @@ const Home: React.FC = () => {
   const getDeviceType = () => {
     // Use Ionic's isPlatform for more reliable detection
     if (isPlatform("android")) {
-      console.log("android from isPlatform");
       return "Android";
     }
     if (isPlatform("ipad")) {
-      console.log("ipad from isPlatform");
       return "iPad";
     }
     if (isPlatform("iphone")) {
-      console.log("iphone from isPlatform");
       return "iPhone";
     }
     // Ionic's isPlatform does not support "ipod", so check user agent for iPod
     if (/iPod/.test(navigator.userAgent)) {
-      console.log("ipod from user agent");
       return "iPod";
     }
 
-    //   // Fallback to user agent detection for web browsers
+    // Fallback to user agent detection for web browsers
     const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
     if (/android/i.test(ua)) {
-      console.log("android from user agent");
       return "Android";
     }
     if (/iPad/.test(ua) && !(window as any).MSStream) {
-      console.log("ipad from user agent");
       return "iPad";
     }
     if (/iPhone/.test(ua) && !(window as any).MSStream) {
-      console.log("iphone from user agent");
       return "iPhone";
     }
     if (/iPod/.test(ua) && !(window as any).MSStream) {
-      console.log("ipod from user agent");
       return "iPod";
     }
     return "default";
@@ -83,53 +81,54 @@ const Home: React.FC = () => {
     setShowMenu(false);
   };
 
-  const activateFooter = (footer) => {
+  const activateFooter = useCallback((footer: number) => {
     AppGeneral.activateFooterButton(footer);
-  };
-
-  useEffect(() => {
-    const data = DATA["home"][getDeviceType()]["msc"];
-    AppGeneral.initializeApp(JSON.stringify(data));
-    checkAuthStatus();
   }, []);
 
-  useEffect(() => {
-    activateFooter(billType);
-  }, [billType]);
+  const footers = useMemo(() => DATA["home"][getDeviceType()]["footers"], []);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       const response = await ApiService.checkAuth();
       if (response.success && response.authenticated) {
         setIsLoggedIn(true);
       }
     } catch (error) {
-      console.log('Auth check failed:', error);
+      // Silently handle auth check failure in production
+      setIsLoggedIn(false);
     }
-  };
+  }, []);
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = useCallback(() => {
     setIsLoggedIn(true);
     setShowLoginModal(false);
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     setAuthLoading(true);
     try {
-      const response = await ApiService.logout();
+      await ApiService.logout();
       setIsLoggedIn(false);
-      alert('Successfully logged out!');
+      // Show success message could be added here if needed
     } catch (error: any) {
-      console.error('Logout error:', error);
-      // Even if logout API fails, clear local state
+      // Even if logout API fails, clear local state for security
       setIsLoggedIn(false);
-      alert('Logged out successfully!');
+      // Could show a warning toast here if needed
     } finally {
       setAuthLoading(false);
     }
-  };
+  }, []);
 
-  const footers = DATA["home"][getDeviceType()]["footers"];
+  useEffect(() => {
+    const data = DATA["home"][getDeviceType()]["msc"];
+    AppGeneral.initializeApp(JSON.stringify(data));
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  useEffect(() => {
+    activateFooter(billType);
+  }, [billType, activateFooter]);
+
   return (
     <IonPage>
       <IonHeader>
@@ -138,7 +137,6 @@ const Home: React.FC = () => {
           <Login
             slot="end"
             onLoginClick={() => {
-              console.log('Setting showLoginModal to true');
               setShowLoginModal(true);
             }}
             isLoggedIn={isLoggedIn}
@@ -189,7 +187,7 @@ const Home: React.FC = () => {
         <IonToolbar color="secondary">
           <IonGrid>
             <IonRow className="ion-nowrap">
-              {footers.map((footerArray) => (
+              {footers.map((footerArray: FooterItem) => (
                 <IonCol key={footerArray.index} size="auto">
                   <IonButton
                     expand="block"
@@ -235,15 +233,10 @@ const Home: React.FC = () => {
         <SimpleModal
           isOpen={showLoginModal}
           onClose={() => {
-            console.log('Closing login modal');
             setShowLoginModal(false);
           }}
           onLoginSuccess={handleLoginSuccess}
         />
-
-        <div style={{ position: 'fixed', top: '10px', right: '10px', background: 'red', color: 'white', padding: '5px', zIndex: 99999 }}>
-          Modal Open: {showLoginModal ? 'YES' : 'NO'}
-        </div>
       </IonContent>
     </IonPage>
   );

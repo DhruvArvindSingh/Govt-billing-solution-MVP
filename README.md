@@ -1,99 +1,102 @@
-# Project Migration and Fixes
+# Government Billing Solution MVP
 
-This project involves the migration of an Ionic v5 app with outdated dependencies to Ionic v7 using Vite as the build tool. The process included transferring code and addressing various issues encountered during the migration.
+A cross-platform billing and invoicing application built with Ionic React, featuring spreadsheet functionality, cloud storage, and password protection.
 
-## Migration Steps
+## Features
 
-- Create a new Ionic Vite app:
+- ✅ **Spreadsheet Interface**: Full-featured spreadsheet with SocialCalc integration
+- ✅ **Cross-Platform**: Web, Android, and iOS support
+- ✅ **Cloud Storage**: S3 and Dropbox integration
+- ✅ **Password Protection**: AES encryption for sensitive files
+- ✅ **Export Options**: PDF and CSV export functionality
+- ✅ **Offline Capable**: Local storage with sync capabilities
+- ✅ **User Authentication**: Secure login system
 
-```bash
-npx create-ionic-vite@latest
-```
+## Production Deployment
 
-- Transfer code from the original Ionic v5 project to the new Vite-based project.
+### Prerequisites
 
-- Fix errors encountered during the migration process by addressing them one by one.
+- Node.js 18+ and npm
+- TypeScript 5.1+
+- For mobile: Android Studio and/or Xcode
 
-## Integration of SocialCalc
-
-During the integration of SocialCalc, an issue arose when switching from UMD to ES6 imports. Although the code worked on the web, it failed on an Android emulator due to the unavailability of the window object.
-
-To resolve this, the UMD module was re-implemented, and the window object was defined in the SocialCalc file. Additionally, the SocialCalc file's outdated code lacked variable declarations. To make these variables available at the top of the scope, the var keyword was used.
-
-## Android Emulator Compatibility Fix
-
-To make the project compatible with an Android emulator, ensure that variables are declared at the top of the scope in the SocialCalc file. This step is essential for addressing issues related to the unavailability of the window object on the Android platform.
-
-## Running the Project on Web
-
-To build an APK from the codebase, follow these steps:
-
-- Install Node.js if not already installed.
-
-- Clone the repository:
+### Build for Production
 
 ```bash
-git clone REPO_URL
-```
-
-- Navigate to the project directory:
-
-```bash
-cd REPO_NAME
-```
-
-- Install project dependencies:
-
-```bash
+# Install dependencies
 npm install
+
+# Type check
+npm run type-check
+
+# Run tests
+npm run test
+
+# Build for production
+npm run build:prod
+
+# Preview production build
+npm run serve
 ```
 
-- Install the Ionic CLI globally:
+### Security Considerations
+
+- All console.log statements are removed in production builds
+- Input validation on all forms
+- Password requirements: 8+ chars, uppercase, lowercase, number, special character
+- AES encryption for protected files
+- Authentication required for cloud operations
+
+### Performance Optimizations
+
+- Code splitting for faster initial load
+- Asset optimization and compression
+- React.memo and useCallback for render optimization
+- Lazy loading of heavy components
+
+### Environment Variables
+
+Create a `.env.production` file:
+
+```env
+VITE_API_BASE_URL=https://your-production-api.com
+VITE_APP_NAME=Government Billing Solution
+VITE_ENVIRONMENT=production
+```
+
+### Mobile Build
 
 ```bash
-npm install -g @ionic/cli
+# Build for Android
+npm run build:android
+
+# Open Android Studio
+npm run android
 ```
 
-- Serve the application:
+### Monitoring
+
+- Error boundaries implemented
+- User feedback via toast notifications
+- Loading states for all async operations
+- Graceful error handling
+
+## Development
 
 ```bash
-ionic serve
+# Start development server
+npm run dev
+
+# Run linting
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Clean build artifacts
+npm run clean
 ```
 
-These steps will set up the project and allow you to test it in a development environment.
+## License
 
-## Running the Project on Android Device
-
-- Install Android Studio if not already installed.
-
-- Sync android codebase
-
-```base
-ionic cap sync android
-```
-
-- Opening the Project in android Studio
-
-```bash
-ionic cap open android
-```
-
-Now you can run the app on a physical device or a virtual emulator, you can also build the app from the menu bar
-
-## Running the Project on IOS Device
-
-- Install XCode and XCode CLI if not already installed.
-
-- Sync ios codebase
-
-```base
-ionic cap sync ios
-```
-
-- Opening the Project in XCode
-
-```bash
-ionic cap open ios
-```
-
-Now you can run the app on a physical device or a virtual emulator, you can also build the app from the menu bar
+Licensed under the terms specified in the LICENSE file.

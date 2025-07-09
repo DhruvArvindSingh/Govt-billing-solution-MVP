@@ -91,29 +91,6 @@ const Cloud: React.FC<{
         return activeTab === 's3' ? s3Files : dropboxFiles;
     };
 
-    // Test API connection
-    const testConnection = async () => {
-        try {
-            if (activeTab === 's3') {
-                await ApiService.listAllS3();
-                setToastMessage("S3 connection successful!");
-            } else {
-                await ApiService.listAllDropbox();
-                setToastMessage("Dropbox connection successful!");
-            }
-            setShowToast(true);
-        } catch (err) {
-            console.error("Connection test failed:", err);
-            if (err.response?.status === 401) {
-                setToastMessage("Authentication failed. Please login and try again.");
-            } else {
-                const provider = activeTab === 's3' ? 'S3' : 'Dropbox';
-                setToastMessage(`${provider} connection failed. Please check your configuration.`);
-            }
-            setShowToast(true);
-        }
-    };
-
     // Upload current invoice to cloud
     const uploadCurrentInvoice = async () => {
         const fileName = prompt('Enter filename for the current invoice (without extension):');
@@ -454,14 +431,6 @@ const Cloud: React.FC<{
                             disabled={loading}
                         >
                             📦 Dropbox
-                        </button>
-                        <button
-                            className="test-connection-btn"
-                            onClick={testConnection}
-                            disabled={loading}
-                            title={`Test ${activeTab === 's3' ? 'S3' : 'Dropbox'} Connection`}
-                        >
-                            🔧 Test Connection
                         </button>
                     </div>
 

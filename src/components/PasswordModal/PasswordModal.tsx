@@ -45,17 +45,27 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
         if (pwd.length < 8) {
             return "Password must be at least 8 characters long";
         }
-        if (!/(?=.*[a-z])/.test(pwd)) {
-            return "Password must contain at least one lowercase letter";
+        if (pwd.length > 128) {
+            return "Password cannot exceed 128 characters";
         }
-        if (!/(?=.*[A-Z])/.test(pwd)) {
+        if (!/[A-Z]/.test(pwd)) {
             return "Password must contain at least one uppercase letter";
         }
-        if (!/(?=.*\d)/.test(pwd)) {
+        if (!/[a-z]/.test(pwd)) {
+            return "Password must contain at least one lowercase letter";
+        }
+        if (!/\d/.test(pwd)) {
             return "Password must contain at least one number";
         }
-        if (!/(?=.*[@$!%*?&])/.test(pwd)) {
-            return "Password must contain at least one special character (@$!%*?&)";
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
+            return "Password must contain at least one special character";
+        }
+        // Check for common weak patterns
+        if (/(.)\1{2,}/.test(pwd)) {
+            return "Password cannot contain repeated characters";
+        }
+        if (/123|abc|qwe|pass|admin/i.test(pwd)) {
+            return "Password cannot contain common patterns";
         }
         return "";
     };
