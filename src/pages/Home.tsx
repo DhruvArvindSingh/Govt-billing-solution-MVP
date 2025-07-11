@@ -15,8 +15,8 @@ import {
 } from "@ionic/react";
 import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
-import { useEffect, useState } from "react";
-import { Local } from "../components/Storage/LocalStorage";
+import { useEffect, useState, useRef } from "react";
+import { File, Local } from "../components/Storage/LocalStorage";
 import { menu, arrowUndo, arrowRedo } from "ionicons/icons";
 import "./Home.css";
 import Menu from "../components/Menu/Menu";
@@ -26,15 +26,29 @@ import NewFile from "../components/NewFile/NewFile";
 import Login from "../components/Login/Login";
 import SimpleModal from "../components/Login/SimpleModal";
 import ApiService from "../components/service/Apiservice";
+import { useApp } from "../contexts/AppContext";
 
 const Home: React.FC = () => {
+  // Use AppContext for state management
+  const {
+    selectedFile,
+    billType,
+    store,
+    updateSelectedFile,
+    updateBillType,
+    autoSaveStatus,
+    setAutoSaveStatus
+  } = useApp();
+
   const [showMenu, setShowMenu] = useState(false);
-  const [selectedFile, updateSelectedFile] = useState("default");
-  const [billType, updateBillType] = useState(1);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [currentFilePassword, setCurrentFilePassword] = useState<string | null>(null);
+
+  // Auto-save related state
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cellChangeListenerRef = useRef<(() => void) | null>(null);
   const getDeviceType = () => {
     // Use Ionic's isPlatform for more reliable detection
     if (isPlatform("android")) {
@@ -77,8 +91,6 @@ const Home: React.FC = () => {
   };
   const [device] = useState("default");
 
-  const store = new Local();
-
   const closeMenu = () => {
     setShowMenu(false);
   };
@@ -96,6 +108,28 @@ const Home: React.FC = () => {
   useEffect(() => {
     activateFooter(billType);
   }, [billType]);
+
+  // Set up auto-save with cell change listener
+  useEffect(() => {
+    // Set up cell change listener
+    const removeListener = AppGeneral.setupCellChangeListener((eventData) => {
+      console.log("Cell changed:", eventData.coord, "->", eventData.newValue, "triggering auto-save");
+      triggerAutoSave();
+    });
+
+    // Store cleanup function
+    cellChangeListenerRef.current = removeListener;
+
+    // Cleanup function
+    return () => {
+      if (cellChangeListenerRef.current) {
+        cellChangeListenerRef.current();
+      }
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [selectedFile, billType, currentFilePassword]); // Re-setup when dependencies change
 
   const checkAuthStatus = async () => {
     try {
@@ -127,12 +161,120 @@ const Home: React.FC = () => {
     setAuthLoading(false);
   };
 
+  // Auto-save function with debouncing
+  const handleAutoSave = async () => {
+    if (selectedFile === "default") {
+      console.log("Skipping auto-save for default template");
+      return; // Don't save default template
+    }
+
+    console.log("Auto-saving file:", selectedFile);
+    setAutoSaveStatus('saving');
+
+    try {
+      // Get current spreadsheet content
+      const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
+
+      // Get existing file data for created timestamp
+      let existingData;
+      try {
+        existingData = await store._getFile(selectedFile);
+      } catch (error) {
+        // File doesn't exist yet
+        existingData = null;
+      }
+
+      // Create file object
+      const file = new File(
+        existingData?.created || new Date().toString(),
+        new Date().toString(), // Updated modified time
+        content,
+        selectedFile,
+        billType
+      );
+
+      // Check if current file is password protected and we have the password
+      if (currentFilePassword && existingData && store.isProtectedFile(existingData.content)) {
+        // Save as protected file with the same password
+        await store._saveProtectedFile(file, currentFilePassword);
+        console.log("Auto-save completed (protected file)");
+      } else {
+        // Save as regular file
+        await store._saveFile(file);
+        console.log("Auto-save completed (regular file)");
+      }
+
+      setAutoSaveStatus('saved');
+
+      // Reset status to idle after 2 seconds
+      setTimeout(() => {
+        setAutoSaveStatus('idle');
+      }, 2000);
+
+    } catch (error) {
+      console.error("Auto-save failed:", error);
+      setAutoSaveStatus('error');
+
+      // Reset status to idle after 3 seconds
+      setTimeout(() => {
+        setAutoSaveStatus('idle');
+      }, 3000);
+    }
+  };
+
+  // Debounced auto-save trigger
+  const triggerAutoSave = () => {
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Set new timer with 2-second delay
+    autoSaveTimerRef.current = setTimeout(() => {
+      handleAutoSave();
+      autoSaveTimerRef.current = null;
+    }, 2000);
+  };
+
   const footers = DATA["home"][getDeviceType()]["footers"];
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar color="primary">
-          <IonTitle>Editing : {selectedFile}</IonTitle>
+          <IonTitle>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Editing : {selectedFile}</span>
+              {autoSaveStatus !== 'idle' && (
+                <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px', gap: '4px' }}>
+                  {autoSaveStatus === 'saving' && (
+                    <>
+                      <div className="saving-spinner" style={{
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid #f3f3f3',
+                        borderTop: '2px solid #ffffff',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }}></div>
+                      <span style={{ color: '#ffffff' }}>Saving...</span>
+                    </>
+                  )}
+                  {autoSaveStatus === 'saved' && (
+                    <>
+                      <span style={{ color: '#90EE90' }}>✓</span>
+                      <span style={{ color: '#90EE90' }}>Saved</span>
+                    </>
+                  )}
+                  {autoSaveStatus === 'error' && (
+                    <>
+                      <span style={{ color: '#FFB6C1' }}>✗</span>
+                      <span style={{ color: '#FFB6C1' }}>Error</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </IonTitle>
           <Login
             slot="end"
             onLoginClick={() => {

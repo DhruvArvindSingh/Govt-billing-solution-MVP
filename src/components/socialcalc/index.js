@@ -321,6 +321,56 @@ export function getSpreadsheetContent() {
   return SocialCalc.WorkBookControlSaveSheet();
 }
 
+// Auto-save functionality: Set up cell change listener
+export function setupCellChangeListener(callback) {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+
+  // Add safety check
+  if (!control || !control.workbook || !control.workbook.spreadsheet) {
+    console.warn("Spreadsheet not initialized yet. Retrying in 100ms...");
+    setTimeout(() => setupCellChangeListener(callback), 100);
+    return () => { }; // Return empty cleanup function
+  }
+
+  var editor = control.workbook.spreadsheet.editor;
+
+  // Store original save edit method
+  if (!SocialCalc.OriginalEditorSaveEdit) {
+    SocialCalc.OriginalEditorSaveEdit = SocialCalc.EditorSaveEdit;
+  }
+
+  SocialCalc.EditorSaveEdit = function (editor, text) {
+    var coord = editor.ecell.coord;
+    var oldValue = SocialCalc.GetCellContents(editor.context.sheetobj, coord);
+
+    // Call original method
+    var result = SocialCalc.OriginalEditorSaveEdit.call(this, editor, text);
+
+    // Trigger callback if value changed
+    if (callback && oldValue !== text) {
+      var currentControl = SocialCalc.GetCurrentWorkBookControl();
+      if (currentControl && currentControl.currentSheetButton) {
+        callback({
+          coord: coord,
+          oldValue: oldValue,
+          newValue: text,
+          timestamp: new Date(),
+          sheetId: currentControl.currentSheetButton.id,
+        });
+      }
+    }
+
+    return result;
+  };
+
+  // Return cleanup function that restores original method
+  return function cleanup() {
+    if (SocialCalc.OriginalEditorSaveEdit) {
+      SocialCalc.EditorSaveEdit = SocialCalc.OriginalEditorSaveEdit;
+    }
+  };
+}
+
 export function getCurrentHTMLContent() {
   var control = SocialCalc.GetCurrentWorkBookControl();
   return control.workbook.spreadsheet.CreateSheetHTML();
