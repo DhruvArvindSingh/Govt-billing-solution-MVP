@@ -21,6 +21,11 @@ import {
     IonLoading,
 } from "@ionic/react";
 import { cloud, trash, create, cloudUpload, close } from "ionicons/icons";
+import { File } from "../Storage/LocalStorage";
+
+interface FileSelection {
+    [key: string]: boolean;
+}
 
 const Cloud: React.FC<{
     store: Local;
@@ -39,6 +44,14 @@ const Cloud: React.FC<{
     const [currentKey, setCurrentKey] = useState<string | null>(null);
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+    const [selectedCloudFiles, setSelectedCloudFiles] = useState<FileSelection>({});
+    const [selectedLocalFiles, setSelectedLocalFiles] = useState<FileSelection>({});
+    const [localFiles, setLocalFiles] = useState<{ [key: string]: number }>({});
+    const [showBatchMode, setShowBatchMode] = useState(false);
+    const [showMoveAlert, setShowMoveAlert] = useState(false);
+    const [moveOperation, setMoveOperation] = useState<'toLocal' | 'toServer' | null>(null);
+    const [conflictFiles, setConflictFiles] = useState<string[]>([]);
+    const [currentMoveFile, setCurrentMoveFile] = useState<string | null>(null);
 
     // Load files from S3 via API
     const loadFilesFromS3 = async () => {
@@ -74,6 +87,18 @@ const Cloud: React.FC<{
             setShowToast(true);
         }
         setLoading(false);
+    };
+
+    // Load files from local storage
+    const loadLocalFiles = async () => {
+        try {
+            const files = await props.store._getAllFiles();
+            setLocalFiles(files);
+        } catch (err) {
+            console.error('Failed to load local files', err);
+            setToastMessage('Failed to load local files');
+            setShowToast(true);
+        }
     };
 
     // Switch tabs
@@ -370,9 +395,238 @@ const Cloud: React.FC<{
         return new Date(timestamp).toLocaleString();
     };
 
+    // File selection helper functions
+    const getSelectedCloudFiles = () => {
+        return Object.keys(selectedCloudFiles).filter(key => selectedCloudFiles[key] && key !== 'default');
+    };
+
+    const getSelectedLocalFiles = () => {
+        return Object.keys(selectedLocalFiles).filter(key => selectedLocalFiles[key] && key !== 'default');
+    };
+
+    const hasSelectedCloudFiles = () => {
+        return getSelectedCloudFiles().length > 0;
+    };
+
+    const hasSelectedLocalFiles = () => {
+        return getSelectedLocalFiles().length > 0;
+    };
+
+    const toggleCloudFileSelection = (key: string) => {
+        setSelectedCloudFiles(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
+    const toggleLocalFileSelection = (key: string) => {
+        setSelectedLocalFiles(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
+    const selectAllCloudFiles = (selectAll: boolean) => {
+        const files = getCurrentFiles();
+        const newSelection: FileSelection = {};
+        Object.keys(files).forEach(key => {
+            if (key !== 'default') {
+                newSelection[key] = selectAll;
+            }
+        });
+        setSelectedCloudFiles(newSelection);
+    };
+
+    const selectAllLocalFiles = (selectAll: boolean) => {
+        const newSelection: FileSelection = {};
+        Object.keys(localFiles).forEach(key => {
+            if (key !== 'default') {
+                newSelection[key] = selectAll;
+            }
+        });
+        setSelectedLocalFiles(newSelection);
+    };
+
+    // Check if file exists locally
+    const isFileExistsLocally = (filename: string): boolean => {
+        return Object.keys(localFiles).includes(filename);
+    };
+
+    // Check if file exists in cloud
+    const isFileExistsInCloud = (filename: string): boolean => {
+        const files = getCurrentFiles();
+        return Object.keys(files).includes(filename);
+    };
+
+    // Move selected local files to server
+    const moveToServer = async () => {
+        const selectedFiles = getSelectedLocalFiles();
+        if (selectedFiles.length === 0) {
+            setToastMessage('No files selected for upload');
+            setShowToast(true);
+            return;
+        }
+
+        // Check for conflicts (files that already exist in cloud)
+        const conflicts = selectedFiles.filter(filename => isFileExistsInCloud(filename));
+        if (conflicts.length > 0) {
+            setConflictFiles(conflicts);
+            setMoveOperation('toServer');
+            setAlertMessage(`${conflicts.length} file(s) already exist in ${activeTab.toUpperCase()}. Overwrite existing files?`);
+            setShowMoveAlert(true);
+            return;
+        }
+
+        await executeServerUpload(selectedFiles);
+    };
+
+    // Execute server upload for selected files
+    const executeServerUpload = async (fileNames: string[]) => {
+        setLoading(true);
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const fileName of fileNames) {
+                try {
+                    const fileData = await props.store._getFile(fileName);
+                    const content = fileData.content;
+
+                    const success = activeTab === 's3'
+                        ? await saveFileToS3(fileName, decodeURIComponent(content))
+                        : await saveFileToDropbox(fileName, decodeURIComponent(content));
+
+                    if (success) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error uploading ${fileName}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Clear selections
+            setSelectedLocalFiles({});
+
+            // Show result message
+            if (successCount > 0 && errorCount === 0) {
+                setToastMessage(`Successfully uploaded ${successCount} file(s) to ${activeTab.toUpperCase()}`);
+            } else if (successCount > 0 && errorCount > 0) {
+                setToastMessage(`Uploaded ${successCount} file(s), ${errorCount} failed`);
+            } else {
+                setToastMessage(`Failed to upload files to ${activeTab.toUpperCase()}`);
+            }
+            setShowToast(true);
+
+        } catch (error) {
+            console.error('Batch upload error:', error);
+            setToastMessage('Error during batch upload');
+            setShowToast(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Move selected cloud files to local storage
+    const moveToLocal = async () => {
+        const selectedFiles = getSelectedCloudFiles();
+        if (selectedFiles.length === 0) {
+            setToastMessage('No files selected for download');
+            setShowToast(true);
+            return;
+        }
+
+        // Check for conflicts (files that already exist locally)
+        const conflicts = selectedFiles.filter(filename => isFileExistsLocally(filename));
+        if (conflicts.length > 0) {
+            setConflictFiles(conflicts);
+            setMoveOperation('toLocal');
+            setAlertMessage(`${conflicts.length} file(s) already exist locally. Overwrite existing files?`);
+            setShowMoveAlert(true);
+            return;
+        }
+
+        await executeLocalDownload(selectedFiles);
+    };
+
+    // Execute local download for selected files
+    const executeLocalDownload = async (fileNames: string[]) => {
+        setLoading(true);
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const fileName of fileNames) {
+                try {
+                    const success = await downloadAndSaveFile(fileName);
+                    if (success) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error downloading ${fileName}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Refresh local files list and clear selections
+            await loadLocalFiles();
+            setSelectedCloudFiles({});
+
+            // Show result message
+            if (successCount > 0 && errorCount === 0) {
+                setToastMessage(`Successfully downloaded ${successCount} file(s) from ${activeTab.toUpperCase()}`);
+            } else if (successCount > 0 && errorCount > 0) {
+                setToastMessage(`Downloaded ${successCount} file(s), ${errorCount} failed`);
+            } else {
+                setToastMessage(`Failed to download files from ${activeTab.toUpperCase()}`);
+            }
+            setShowToast(true);
+
+        } catch (error) {
+            console.error('Batch download error:', error);
+            setToastMessage('Error during batch download');
+            setShowToast(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Helper method to download and save a single file
+    const downloadAndSaveFile = async (filename: string): Promise<boolean> => {
+        try {
+            const fileData = activeTab === 's3'
+                ? await getFileFromS3(filename)
+                : await getFileFromDropbox(filename);
+
+            if (!fileData || !fileData.content) {
+                return false;
+            }
+
+            // Create a new File object for local storage
+            const file = new File(
+                new Date().toString(), // created
+                new Date().toString(), // modified
+                encodeURIComponent(fileData.content), // content (encode for storage)
+                filename, // name
+                1 // billType - default value
+            );
+
+            await props.store._saveFile(file);
+            return true;
+        } catch (error) {
+            console.error(`Error downloading file ${filename}:`, error);
+            return false;
+        }
+    };
+
     // Load files when modal opens
     useEffect(() => {
         if (showModal) {
+            loadLocalFiles(); // Always load local files when modal opens
             if (activeTab === 's3') {
                 loadFilesFromS3();
             } else {
@@ -445,6 +699,15 @@ const Cloud: React.FC<{
                             Upload Invoice
                         </IonButton>
 
+                        <IonButton
+                            className="batch-mode-button"
+                            fill={showBatchMode ? "solid" : "outline"}
+                            onClick={() => setShowBatchMode(!showBatchMode)}
+                            disabled={loading}
+                        >
+                            {showBatchMode ? 'Exit Batch' : 'Batch Mode'}
+                        </IonButton>
+
                         <div className="search-container">
                             <input
                                 type="text"
@@ -464,56 +727,157 @@ const Cloud: React.FC<{
                         </div>
                     </div>
 
-                    {/* File List */}
-                    <div className="file-list-container">
-                        {loading && (
-                            <div className="loading-message">
-                                Loading files from {activeTab === 's3' ? 'S3' : 'Dropbox'}...
-                            </div>
-                        )}
-
-                        {!loading && filteredFiles.length === 0 && searchTerm && (
-                            <div className="no-results-message">
-                                No files found matching "{searchTerm}"
-                            </div>
-                        )}
-
-                        {!loading && Object.keys(files).length === 0 && !searchTerm && (
-                            <div className="no-files-message">
-                                No files found in {activeTab === 's3' ? 'S3' : 'Dropbox'}
-                            </div>
-                        )}
-
-                        {!loading && filteredFiles.length > 0 && (
-                            <IonList className="file-list">
-                                {filteredFiles.map((key) => (
-                                    <IonItem key={key} className="file-item">
-                                        <div className="file-info">
-                                            <div className="file-name">{key}</div>
-                                            <div className="file-date">
-                                                {_formatDate(files[key])}
+                    {/* Batch Operations Panel */}
+                    {showBatchMode && (
+                        <div className="batch-operations-panel">
+                            <div className="batch-section">
+                                <div className="batch-header">
+                                    <h4>Local Files ({Object.keys(localFiles).filter(key => key !== 'default').length})</h4>
+                                    <div className="batch-controls">
+                                        <IonButton
+                                            size="small"
+                                            fill="clear"
+                                            onClick={() => selectAllLocalFiles(true)}
+                                            disabled={loading}
+                                        >
+                                            Select All
+                                        </IonButton>
+                                        <IonButton
+                                            size="small"
+                                            fill="clear"
+                                            onClick={() => selectAllLocalFiles(false)}
+                                            disabled={loading}
+                                        >
+                                            Clear All
+                                        </IonButton>
+                                        <IonButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={moveToServer}
+                                            disabled={!hasSelectedLocalFiles() || loading}
+                                        >
+                                            Upload to {activeTab.toUpperCase()} ({getSelectedLocalFiles().length})
+                                        </IonButton>
+                                    </div>
+                                </div>
+                                <div className="local-files-list">
+                                    {Object.keys(localFiles)
+                                        .filter(key => key !== 'default' && key.toLowerCase().includes(searchTerm.toLowerCase()))
+                                        .map(key => (
+                                            <div key={key} className="batch-file-item">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedLocalFiles[key] || false}
+                                                    onChange={() => toggleLocalFileSelection(key)}
+                                                    disabled={loading}
+                                                />
+                                                <span className="file-name">{key}</span>
+                                                <span className="file-date">{_formatDate(localFiles[key])}</span>
                                             </div>
-                                        </div>
+                                        ))}
+                                </div>
+                            </div>
 
-                                        <div className="file-actions">
-                                            <IonIcon
-                                                icon={create}
-                                                color="warning"
-                                                className="action-icon"
-                                                onClick={() => editFile(key)}
+                            <div className="batch-section">
+                                <div className="batch-header">
+                                    <h4>{activeTab.toUpperCase()} Files ({filteredFiles.length})</h4>
+                                    <div className="batch-controls">
+                                        <IonButton
+                                            size="small"
+                                            fill="clear"
+                                            onClick={() => selectAllCloudFiles(true)}
+                                            disabled={loading}
+                                        >
+                                            Select All
+                                        </IonButton>
+                                        <IonButton
+                                            size="small"
+                                            fill="clear"
+                                            onClick={() => selectAllCloudFiles(false)}
+                                            disabled={loading}
+                                        >
+                                            Clear All
+                                        </IonButton>
+                                        <IonButton
+                                            size="small"
+                                            color="secondary"
+                                            onClick={moveToLocal}
+                                            disabled={!hasSelectedCloudFiles() || loading}
+                                        >
+                                            Download to Local ({getSelectedCloudFiles().length})
+                                        </IonButton>
+                                    </div>
+                                </div>
+                                <div className="cloud-files-list">
+                                    {filteredFiles.map(key => (
+                                        <div key={key} className="batch-file-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedCloudFiles[key] || false}
+                                                onChange={() => toggleCloudFileSelection(key)}
+                                                disabled={loading}
                                             />
-                                            <IonIcon
-                                                icon={trash}
-                                                color="danger"
-                                                className="action-icon"
-                                                onClick={() => deleteFile(key)}
-                                            />
+                                            <span className="file-name">{key}</span>
+                                            <span className="file-date">{_formatDate(files[key])}</span>
                                         </div>
-                                    </IonItem>
-                                ))}
-                            </IonList>
-                        )}
-                    </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* File List - Hide in batch mode */}
+                    {!showBatchMode && (
+                        <div className="file-list-container">
+                            {loading && (
+                                <div className="loading-message">
+                                    Loading files from {activeTab === 's3' ? 'S3' : 'Dropbox'}...
+                                </div>
+                            )}
+
+                            {!loading && filteredFiles.length === 0 && searchTerm && (
+                                <div className="no-results-message">
+                                    No files found matching "{searchTerm}"
+                                </div>
+                            )}
+
+                            {!loading && Object.keys(files).length === 0 && !searchTerm && (
+                                <div className="no-files-message">
+                                    No files found in {activeTab === 's3' ? 'S3' : 'Dropbox'}
+                                </div>
+                            )}
+
+                            {!loading && filteredFiles.length > 0 && (
+                                <IonList className="file-list">
+                                    {filteredFiles.map((key) => (
+                                        <IonItem key={key} className="file-item">
+                                            <div className="file-info">
+                                                <div className="file-name">{key}</div>
+                                                <div className="file-date">
+                                                    {_formatDate(files[key])}
+                                                </div>
+                                            </div>
+
+                                            <div className="file-actions">
+                                                <IonIcon
+                                                    icon={create}
+                                                    color="warning"
+                                                    className="action-icon"
+                                                    onClick={() => editFile(key)}
+                                                />
+                                                <IonIcon
+                                                    icon={trash}
+                                                    color="danger"
+                                                    className="action-icon"
+                                                    onClick={() => deleteFile(key)}
+                                                />
+                                            </div>
+                                        </IonItem>
+                                    ))}
+                                </IonList>
+                            )}
+                        </div>
+                    )}
 
                     <IonButton
                         expand="block"
@@ -538,6 +902,65 @@ const Cloud: React.FC<{
                         text: "Yes",
                         handler: confirmDelete,
                     },
+                ]}
+            />
+
+            {/* Batch Operations Conflict Alert */}
+            <IonAlert
+                animated
+                isOpen={showMoveAlert}
+                onDidDismiss={() => {
+                    setShowMoveAlert(false);
+                    setMoveOperation(null);
+                    setConflictFiles([]);
+                }}
+                header="File Conflicts"
+                message={alertMessage}
+                buttons={[
+                    {
+                        text: "Cancel",
+                        role: "cancel",
+                        handler: () => {
+                            setMoveOperation(null);
+                            setConflictFiles([]);
+                        }
+                    },
+                    {
+                        text: "Skip Conflicts",
+                        handler: () => {
+                            // Execute operation only for non-conflicting files
+                            if (moveOperation === 'toServer') {
+                                const selectedFiles = getSelectedLocalFiles();
+                                const nonConflictFiles = selectedFiles.filter(filename => !conflictFiles.includes(filename));
+                                if (nonConflictFiles.length > 0) {
+                                    executeServerUpload(nonConflictFiles);
+                                }
+                            } else if (moveOperation === 'toLocal') {
+                                const selectedFiles = getSelectedCloudFiles();
+                                const nonConflictFiles = selectedFiles.filter(filename => !conflictFiles.includes(filename));
+                                if (nonConflictFiles.length > 0) {
+                                    executeLocalDownload(nonConflictFiles);
+                                }
+                            }
+                            setMoveOperation(null);
+                            setConflictFiles([]);
+                        }
+                    },
+                    {
+                        text: "Overwrite All",
+                        handler: () => {
+                            // Execute operation for all selected files
+                            if (moveOperation === 'toServer') {
+                                const selectedFiles = getSelectedLocalFiles();
+                                executeServerUpload(selectedFiles);
+                            } else if (moveOperation === 'toLocal') {
+                                const selectedFiles = getSelectedCloudFiles();
+                                executeLocalDownload(selectedFiles);
+                            }
+                            setMoveOperation(null);
+                            setConflictFiles([]);
+                        }
+                    }
                 ]}
             />
 

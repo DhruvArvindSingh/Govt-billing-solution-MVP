@@ -34,19 +34,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const savedBillType = localStorage.getItem("app-bill-type");
 
             if (savedFile && savedFile !== "null") setSelectedFile(savedFile);
-            if (savedBillType) setBillType(parseInt(savedBillType, 10));
+            if (savedBillType) {
+                const parsedBillType = parseInt(savedBillType, 10);
+                if (!isNaN(parsedBillType)) setBillType(parsedBillType);
+            }
         } catch (error) {
-            console.warn("Failed to load app state:", error);
+            // Silently fail and use defaults - this is not critical for app functionality
         }
     }, []);
 
     // Persist state changes
     useEffect(() => {
-        localStorage.setItem("app-selected-file", selectedFile);
+        try {
+            localStorage.setItem("app-selected-file", selectedFile);
+        } catch (error) {
+            // Silently fail - not critical for app functionality
+        }
     }, [selectedFile]);
 
     useEffect(() => {
-        localStorage.setItem("app-bill-type", billType.toString());
+        try {
+            localStorage.setItem("app-bill-type", billType.toString());
+        } catch (error) {
+            // Silently fail - not critical for app functionality
+        }
     }, [billType]);
 
     const updateSelectedFile = (fileName: string) => setSelectedFile(fileName);

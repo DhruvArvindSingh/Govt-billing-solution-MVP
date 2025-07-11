@@ -27,6 +27,7 @@ import Login from "../components/Login/Login";
 import SimpleModal from "../components/Login/SimpleModal";
 import ApiService from "../components/service/Apiservice";
 import { useApp } from "../contexts/AppContext";
+import AUTO_SAVE_CONFIG, { isAutoSaveEnabled } from "../config/autosave.config";
 
 const Home: React.FC = () => {
   // Use AppContext for state management
@@ -49,6 +50,8 @@ const Home: React.FC = () => {
   // Auto-save related state
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cellChangeListenerRef = useRef<(() => void) | null>(null);
+  const lastSaveTimeRef = useRef<number>(0);
+  const retryCountRef = useRef<number>(0);
   const getDeviceType = () => {
     // Use Ionic's isPlatform for more reliable detection
     if (isPlatform("android")) {
@@ -113,7 +116,6 @@ const Home: React.FC = () => {
   useEffect(() => {
     // Set up cell change listener
     const removeListener = AppGeneral.setupCellChangeListener((eventData) => {
-      console.log("Cell changed:", eventData.coord, "->", eventData.newValue, "triggering auto-save");
       triggerAutoSave();
     });
 
@@ -161,14 +163,25 @@ const Home: React.FC = () => {
     setAuthLoading(false);
   };
 
-  // Auto-save function with debouncing
-  const handleAutoSave = async () => {
-    if (selectedFile === "default") {
-      console.log("Skipping auto-save for default template");
-      return; // Don't save default template
+  // Auto-save function with debouncing and retry logic
+  const handleAutoSave = async (isRetry = false) => {
+    // Check if auto-save is enabled (check user preference first)
+    if (!isAutoSaveEnabled()) {
+      return;
     }
 
-    console.log("Auto-saving file:", selectedFile);
+    // Check if file should be excluded from auto-save
+    if (AUTO_SAVE_CONFIG.EXCLUDED_FILES.includes(selectedFile.toLowerCase())) {
+      return;
+    }
+
+    // Prevent excessive saving - enforce minimum interval
+    const now = Date.now();
+    if (now - lastSaveTimeRef.current < AUTO_SAVE_CONFIG.MIN_SAVE_INTERVAL && !isRetry) {
+      return;
+    }
+
+    lastSaveTimeRef.current = now;
     setAutoSaveStatus('saving');
 
     try {
@@ -197,28 +210,39 @@ const Home: React.FC = () => {
       if (currentFilePassword && existingData && store.isProtectedFile(existingData.content)) {
         // Save as protected file with the same password
         await store._saveProtectedFile(file, currentFilePassword);
-        console.log("Auto-save completed (protected file)");
       } else {
         // Save as regular file
         await store._saveFile(file);
-        console.log("Auto-save completed (regular file)");
       }
 
       setAutoSaveStatus('saved');
+      retryCountRef.current = 0; // Reset retry count on successful save
 
-      // Reset status to idle after 2 seconds
+      // Reset status to idle after configured duration
       setTimeout(() => {
         setAutoSaveStatus('idle');
-      }, 2000);
+      }, AUTO_SAVE_CONFIG.SAVED_STATUS_DURATION);
 
     } catch (error) {
       console.error("Auto-save failed:", error);
-      setAutoSaveStatus('error');
 
-      // Reset status to idle after 3 seconds
+      // Implement retry logic
+      if (retryCountRef.current < AUTO_SAVE_CONFIG.MAX_RETRY_ATTEMPTS) {
+        retryCountRef.current++;
+        setTimeout(() => {
+          handleAutoSave(true); // Retry
+        }, AUTO_SAVE_CONFIG.RETRY_DELAY);
+        return; // Don't show error status during retry
+      }
+
+      // Show error after all retries failed
+      setAutoSaveStatus('error');
+      retryCountRef.current = 0; // Reset retry count
+
+      // Reset status to idle after configured duration
       setTimeout(() => {
         setAutoSaveStatus('idle');
-      }, 3000);
+      }, AUTO_SAVE_CONFIG.ERROR_STATUS_DURATION);
     }
   };
 
@@ -229,11 +253,11 @@ const Home: React.FC = () => {
       clearTimeout(autoSaveTimerRef.current);
     }
 
-    // Set new timer with 2-second delay
+    // Set new timer with configured delay
     autoSaveTimerRef.current = setTimeout(() => {
       handleAutoSave();
       autoSaveTimerRef.current = null;
-    }, 2000);
+    }, AUTO_SAVE_CONFIG.DEBOUNCE_DELAY);
   };
 
   const footers = DATA["home"][getDeviceType()]["footers"];
@@ -256,7 +280,9 @@ const Home: React.FC = () => {
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite'
                       }}></div>
-                      <span style={{ color: '#ffffff' }}>Saving...</span>
+                      <span style={{ color: '#ffffff', fontSize: '11px' }}>
+                        {retryCountRef.current > 0 ? `Retrying... (${retryCountRef.current}/${AUTO_SAVE_CONFIG.MAX_RETRY_ATTEMPTS})` : 'Saving...'}
+                      </span>
                     </>
                   )}
                   {autoSaveStatus === 'saved' && (
@@ -267,8 +293,8 @@ const Home: React.FC = () => {
                   )}
                   {autoSaveStatus === 'error' && (
                     <>
-                      <span style={{ color: '#FFB6C1' }}>✗</span>
-                      <span style={{ color: '#FFB6C1' }}>Error</span>
+                      <span style={{ color: '#FFB6C1' }}>⚠</span>
+                      <span style={{ color: '#FFB6C1', fontSize: '11px' }}>Save Failed</span>
                     </>
                   )}
                 </div>
@@ -278,7 +304,6 @@ const Home: React.FC = () => {
           <Login
             slot="end"
             onLoginClick={() => {
-              console.log('Setting showLoginModal to true');
               setShowLoginModal(true);
             }}
             isLoggedIn={isLoggedIn}
@@ -375,15 +400,10 @@ const Home: React.FC = () => {
         <SimpleModal
           isOpen={showLoginModal}
           onClose={() => {
-            console.log('Closing login modal');
             setShowLoginModal(false);
           }}
           onLoginSuccess={handleLoginSuccess}
         />
-
-        <div style={{ position: 'fixed', top: '10px', right: '10px', background: 'red', color: 'white', padding: '5px', zIndex: 99999 }}>
-          Modal Open: {showLoginModal ? 'YES' : 'NO'}
-        </div>
       </IonContent>
     </IonPage>
   );

@@ -327,7 +327,6 @@ export function setupCellChangeListener(callback) {
 
   // Add safety check
   if (!control || !control.workbook || !control.workbook.spreadsheet) {
-    console.warn("Spreadsheet not initialized yet. Retrying in 100ms...");
     setTimeout(() => setupCellChangeListener(callback), 100);
     return () => { }; // Return empty cleanup function
   }
