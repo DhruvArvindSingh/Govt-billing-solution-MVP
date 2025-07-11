@@ -107,48 +107,11 @@ const SimpleModal: React.FC<SimpleModalProps> = ({ isOpen, onClose, onLoginSucce
                 onLoginSuccess();
                 resetForm();
             } else {
-                try {
-                    const signupResponse = await ApiService.signup({
-                        email: formData.email,
-                        password: formData.password
-                    });
-
-                    if (signupResponse.success) {
-                        alert('Account created and signed in successfully!');
-                        onLoginSuccess();
-                        resetForm();
-                    } else {
-                        alert(signupResponse.error || 'Login/Signup failed. Please try again.');
-                    }
-                } catch (signupError: any) {
-                    console.error('Signup error:', signupError);
-                    alert('Login/Signup failed. Please try again.');
-                }
+                alert(response.error || 'Login failed. Please try again.');
             }
         } catch (error: any) {
             console.error('Login error:', error);
-
-            if (error.response?.status === 404 || error.response?.status === 401) {
-                try {
-                    const signupResponse = await ApiService.signup({
-                        email: formData.email,
-                        password: formData.password
-                    });
-
-                    if (signupResponse.success) {
-                        alert('Account created and signed in successfully!');
-                        onLoginSuccess();
-                        resetForm();
-                    } else {
-                        alert('Account creation failed. Please try again.');
-                    }
-                } catch (signupError: any) {
-                    console.error('Signup error:', signupError);
-                    alert('Login/Signup failed. Please try again.');
-                }
-            } else {
-                alert('Login failed. Please try again.');
-            }
+            alert('Login failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -242,7 +205,7 @@ const SimpleModal: React.FC<SimpleModalProps> = ({ isOpen, onClose, onLoginSucce
         <div style={modalStyle} onClick={closeModal}>
             <div style={contentStyle} onClick={(e) => e.stopPropagation()}>
                 <div style={headerStyle}>
-                    <h2 style={{ margin: 0, color: '#3880ff' }}>Login / Sign Up</h2>
+                    <h2 style={{ margin: 0, color: '#3880ff' }}>Login</h2>
                     <button style={closeButtonStyle} onClick={closeModal}>
                         <IonIcon icon={close} />
                     </button>
@@ -287,7 +250,7 @@ const SimpleModal: React.FC<SimpleModalProps> = ({ isOpen, onClose, onLoginSucce
                                 Processing...
                             </>
                         ) : (
-                            'Login / Sign Up'
+                            'Login'
                         )}
                     </IonButton>
                 </form>

@@ -103,7 +103,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         setLoading(true);
 
         try {
-            // Try to sign in first
+            // Only call signin; signup is handled within signin
             const response = await ApiService.signin({
                 email: formData.email,
                 password: formData.password
@@ -115,50 +115,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
                 onLoginSuccess();
                 closeModal();
             } else {
-                // If signin fails, try signup
-                try {
-                    const signupResponse = await ApiService.signup({
-                        email: formData.email,
-                        password: formData.password
-                    });
-
-                    if (signupResponse.success) {
-                        alert('Account created and signed in successfully!');
-                        onLoginSuccess();
-                        closeModal();
-                    } else {
-                        alert(signupResponse.error || 'Login/Signup failed. Please try again.');
-                    }
-                } catch (signupError: any) {
-                    console.error('Signup error:', signupError);
-                    alert(signupError.response?.data?.message || signupError.message || 'Login/Signup failed. Please try again.');
-                }
+                alert(response.error || 'Login failed. Please try again.');
             }
         } catch (error: any) {
             console.error('Login error:', error);
-
-            // If signin fails with 404 or 401, it might mean user doesn't exist, so try signup
-            if (error.response?.status === 404 || error.response?.status === 401) {
-                try {
-                    const signupResponse = await ApiService.signup({
-                        email: formData.email,
-                        password: formData.password
-                    });
-
-                    if (signupResponse.success) {
-                        alert('Account created and signed in successfully!');
-                        onLoginSuccess();
-                        closeModal();
-                    } else {
-                        alert(signupResponse.error || 'Account creation failed. Please try again.');
-                    }
-                } catch (signupError: any) {
-                    console.error('Signup error:', signupError);
-                    alert(signupError.response?.data?.message || signupError.message || 'Login/Signup failed. Please try again.');
-                }
-            } else {
-                alert(error.response?.data?.message || error.message || 'Login failed. Please try again.');
-            }
+            alert(error.response?.data?.message || error.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
         }

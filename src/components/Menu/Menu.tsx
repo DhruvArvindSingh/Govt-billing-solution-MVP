@@ -5,12 +5,13 @@ import { isPlatform, IonToast, IonLoading } from "@ionic/react";
 import { EmailComposer } from "capacitor-email-composer";
 import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert } from "@ionic/react";
-import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline } from "ionicons/icons";
-import { APP_NAME } from "../../app-data.js";
+import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline, imageOutline } from "ionicons/icons";
+import { APP_NAME, LOGO } from "../../app-data.js";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import PasswordModal from '../PasswordModal/PasswordModal';
 // import JSZip from 'jszip'; // Will be added later for zip functionality
 
@@ -419,6 +420,8 @@ const Menu: React.FC<{
   const [nameError, setNameError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [showLogoAlert, setShowLogoAlert] = useState(false);
+  const [showCameraAlert, setShowCameraAlert] = useState(false);
   /* Utility functions */
   const _validateName = async (filename: string): Promise<boolean> => {
     filename = filename.trim();
@@ -906,6 +909,118 @@ const Menu: React.FC<{
     }
   };
 
+  // Logo functionality
+  const addLogo = () => {
+    setShowLogoAlert(true);
+  };
+
+  const removeLogo = async () => {
+    setIsLoading(true);
+    setLoadingMessage("Removing logo...");
+
+    try {
+      // Get device type for logo removal
+      const deviceType = AppGeneral.getDeviceType ? AppGeneral.getDeviceType() : "default";
+
+      // Call AppGeneral.removeLogo if it exists
+      if (AppGeneral.removeLogo) {
+        await AppGeneral.removeLogo(LOGO[deviceType] || LOGO.default);
+        setToastMessage("Logo removed successfully");
+        setShowToast1(true);
+      } else {
+        // Fallback implementation - remove logo from current spreadsheet
+        // This would depend on how logos are stored in the spreadsheet
+        setToastMessage("Logo removal functionality not available");
+        setShowToast1(true);
+      }
+    } catch (error) {
+      console.error('Error removing logo:', error);
+      setToastMessage("Error removing logo. Please try again.");
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const sendLogoToServer = async (source: CameraSource) => {
+    setIsLoading(true);
+    setLoadingMessage("Taking photo...");
+
+    try {
+      // Request camera permissions for mobile
+      if (isPlatform('hybrid')) {
+        // Check camera permissions
+        const permissions = await Camera.requestPermissions();
+        if (permissions.camera !== 'granted') {
+          setToastMessage("Camera permission is required to add logo");
+          setShowToast1(true);
+          return;
+        }
+      }
+
+      setLoadingMessage("Opening camera...");
+
+      // Take photo using Capacitor Camera
+      const image = await Camera.getPhoto({
+        quality: 50,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: source
+      });
+      console.log('image', image);
+
+      if (!image.dataUrl) {
+        setToastMessage("No image captured");
+        setShowToast1(true);
+        return;
+      }
+
+      setLoadingMessage("Processing image...");
+
+      // The image.dataUrl already contains the base64 data URI
+      const base64Image = image.dataUrl;
+
+      // For now, we'll store the logo locally and add it to the spreadsheet
+      // In a real implementation, you might want to upload to a server
+      await addLogoToApp(base64Image);
+
+    } catch (error) {
+      console.error('Error capturing image:', error);
+      setToastMessage("Error capturing image. Please try again.");
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const addLogoToApp = async (imageDataUrl: string) => {
+    setLoadingMessage("Adding logo to spreadsheet...");
+
+    try {
+      // Check if AppGeneral has an addLogo method
+      if (AppGeneral.addLogo) {
+        const deviceType = AppGeneral.getDeviceType ? AppGeneral.getDeviceType() : "default";
+        await AppGeneral.addLogo(LOGO[`${deviceType}`], imageDataUrl);
+        setToastMessage("Logo added successfully");
+        setShowToast1(true);
+      } else {
+        // Fallback: Store logo in localStorage for future use
+        localStorage.setItem('spreadsheet_logo', imageDataUrl);
+
+        // You could also insert the logo into a specific cell or header
+        // This would depend on your spreadsheet implementation
+        setToastMessage("Logo stored successfully. Please refresh to see changes.");
+        setShowToast1(true);
+      }
+    } catch (error) {
+      console.error('Error adding logo to app:', error);
+      setToastMessage("Error adding logo. Please try again.");
+      setShowToast1(true);
+    }
+  };
+
   return (
     <React.Fragment>
       <IonLoading
@@ -974,6 +1089,13 @@ const Menu: React.FC<{
             icon: layersOutline,
             handler: () => {
               exportWorkbookAsPdf();
+            },
+          },
+          {
+            text: "Add/Remove Logo",
+            icon: imageOutline,
+            handler: () => {
+              addLogo();
             },
           },
         ]}
@@ -1051,6 +1173,66 @@ const Menu: React.FC<{
         submitText="Save Protected"
         showNameField={true}
         nameError={nameError}
+      />
+
+      {/* Logo Alert */}
+      <IonAlert
+        animated
+        isOpen={showLogoAlert}
+        onDidDismiss={() => setShowLogoAlert(false)}
+        header="Logo"
+        message="Do you want to Add or Remove Logo?"
+        buttons={[
+          {
+            text: "Remove",
+            handler: () => {
+              removeLogo();
+            },
+          },
+          {
+            text: "Add",
+            handler: () => {
+              setShowCameraAlert(true);
+            },
+          },
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              console.log("Cancel clicked");
+            },
+          },
+        ]}
+      />
+
+      {/* Camera Source Alert */}
+      <IonAlert
+        animated
+        isOpen={showCameraAlert}
+        onDidDismiss={() => setShowCameraAlert(false)}
+        header="Complete action using"
+        message="Do you want to add image from Camera or Photos?"
+        buttons={[
+          {
+            text: "Camera",
+            handler: () => {
+              sendLogoToServer(CameraSource.Camera);
+            },
+          },
+          {
+            text: "Photos",
+            handler: () => {
+              sendLogoToServer(CameraSource.Photos);
+            },
+          },
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              console.log("Cancel clicked");
+            },
+          },
+        ]}
       />
     </React.Fragment>
   );

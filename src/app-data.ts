@@ -1,5 +1,8 @@
 export let APP_NAME = "Invoice Suite";
 
+export let LINK =
+  "https://itunes.apple.com/us/app/check-book-register/id488517738?ls=1&mt=8";
+
 export let DATA = {
   ledger: {
     iPad: {
@@ -1484,7 +1487,7 @@ export let DATA = {
         { name: "Detail2", index: 5, isActive: false },
       ],
     },
-    Android: {
+    android: {
       msc: {
         numsheets: 5,
         currentid: "sheet1",
@@ -3906,3 +3909,235 @@ export let DATA = {
     },
   },
 };
+
+/* Logo coordinates */
+export let LOGO = {
+  iPad: {
+    sheet1: "F4",
+    sheet2: "F4",
+    sheet3: "F4",
+    sheet4: "F4",
+  },
+  iPhone: {
+    sheet1: "F5",
+    sheet2: "F7",
+    sheet3: "F8",
+    sheet4: null,
+    sheet5: null,
+  },
+  iPod: {
+    sheet1: "F5",
+    sheet2: "F7",
+    sheet3: "F8",
+    sheet4: null,
+    sheet5: null,
+  },
+  Android: {
+    sheet1: "F5",
+    sheet2: "F7",
+    sheet3: "F8",
+    sheet4: null,
+    sheet5: null,
+  },
+  default: {
+    sheet1: "F4",
+    sheet2: "F4",
+    sheet3: "F4",
+    sheet4: "F4",
+  }
+};
+
+/* Sheet options */
+
+export let SHEET_SCHEME = {
+  grey: {
+    val1: 221,
+    val2: 221,
+    val3: 221,
+  },
+  white: {
+    val1: 255,
+    val2: 255,
+    val3: 255,
+  },
+  green: {
+    val1: 231,
+    val2: 243,
+    val3: 239,
+  },
+  blue: {
+    val1: 230,
+    val2: 230,
+    val3: 250,
+  },
+};
+
+export let COLOR_SCHEME = {
+  iPad: {
+    sheet1: { lower: 17, upper: 27, start_col: "C", end_col: "F" },
+    sheet2: { lower: 17, upper: 27, start_col: "C", end_col: "H" },
+    sheet3: { lower: 19, upper: 29, start_col: "B", end_col: "G" },
+    sheet4: { lower: 19, upper: 29, start_col: "B", end_col: "G" },
+  },
+  iPhone: {
+    sheet1: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet2: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet3: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet4: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet5: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+  },
+  iPod: {
+    sheet1: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet2: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet3: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet4: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet5: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+  },
+  Android: {
+    sheet1: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet2: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet3: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet4: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+    sheet5: { lower: 6, upper: 30, start_col: "B", end_col: "I" },
+  },
+  default: {
+    sheet1: { lower: 17, upper: 27, start_col: "C", end_col: "F" },
+    sheet2: { lower: 17, upper: 27, start_col: "C", end_col: "H" },
+    sheet3: { lower: 19, upper: 29, start_col: "B", end_col: "G" },
+    sheet4: { lower: 19, upper: 29, start_col: "B", end_col: "G" },
+  },
+};
+
+export let FONT_SCHEME = {
+  iPad: {
+    sheet1: { lower: 4, upper: 35, start_col: "C", end_col: "G" },
+    sheet2: { lower: 4, upper: 35, start_col: "C", end_col: "G" },
+    sheet3: { lower: 4, upper: 35, start_col: "B", end_col: "G" },
+    sheet4: { lower: 4, upper: 35, start_col: "B", end_col: "G" },
+  },
+  iPhone: {
+    sheet1: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet2: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet3: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet4: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet5: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+  },
+  iPod: {
+    sheet1: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet2: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet3: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet4: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+    sheet5: { lower: 2, upper: 43, start_col: "B", end_col: "G" },
+  },
+  default: {
+    sheet1: { lower: 4, upper: 35, start_col: "C", end_col: "G" },
+    sheet2: { lower: 4, upper: 35, start_col: "C", end_col: "G" },
+    sheet3: { lower: 4, upper: 35, start_col: "B", end_col: "G" },
+    sheet4: { lower: 4, upper: 35, start_col: "B", end_col: "G" },
+  },
+};
+
+export let FONT_OPTIONS = {
+  e: "font normal bold 14px arial,helvetica,sans-serif",
+  f: "font italic normal 14px arial,helvetica,sans-serif",
+  g: "font italic bold 14px arial,helvetica,sans-serif",
+  "10": "font * 10px arial,helvetica,sans-serif",
+  "12": "font * 12px arial,helvetica,sans-serif",
+  "14": "font * 14px arial,helvetica,sans-serif",
+  "16": "font * 16px arial,helvetica,sans-serif",
+};
+
+/* Inapp purchase */
+export let INAPP_ITEMS = [
+  "2014inv10Pdf",
+  "2014inv25Pdf",
+  "2014inv50Pdf",
+  "2014inv100Pdf",
+  "2014inv10ft",
+  "2015inv10fb",
+  "2015inv10tw",
+  "2015inv10wa",
+  "2015inv10sms",
+  "2015inv10save",
+  "2015invCloud",
+  "2015invSavePrintEmail",
+  "2015inv500SavePrintEmail",
+  "2015inv1000SavePrintEmail",
+];
+
+export let PDF_10 = "2014inv10Pdf";
+
+export let PDF_25 = "2014inv25Pdf";
+
+export let PDF_50 = "2014inv50Pdf";
+
+export let PDF_100 = "2014inv100Pdf";
+
+export let SHARE_PDF = "2014inv10ft";
+
+export let FB_10 = "2015inv10fb";
+
+export let TW_10 = "2015inv10tw";
+
+export let WA_10 = "2015inv10wa";
+
+export let SMS_10 = "2015inv10sms";
+
+export let SAVE_PDF = "2015inv10save";
+
+export let CLOUD_SAVE = "2015invCloud";
+
+export let SPE_10 = "2015invSavePrintEmail";
+
+export let SPE_500 = "2015inv500SavePrintEmail";
+
+export let SPE_1000 = "2015inv1000SavePrintEmail";
+
+export let INAPPLOCAL = [
+  { Feature: "10Pdf", Id: "2014inv10Pdf", Purchase: "No", Consumed: 0, Own: 0 },
+  { Feature: "25Pdf", Id: "2014inv25Pdf", Purchase: "No", Consumed: 0, Own: 0 },
+  { Feature: "50Pdf", Id: "2014inv50Pdf", Purchase: "No", Consumed: 0, Own: 0 },
+  {
+    Feature: "100Pdf",
+    Id: "2014inv100Pdf",
+    Purchase: "No",
+    Consumed: 0,
+    Own: 0,
+  },
+  { Feature: "10Fb", Id: "2015inv10fb", Purchase: "No", Consumed: 0, Own: 0 },
+  { Feature: "10Tw", Id: "2015inv10tw", Purchase: "No", Consumed: 0, Own: 0 },
+  { Feature: "10Wa", Id: "2015inv10wa", Purchase: "No", Consumed: 0, Own: 0 },
+  { Feature: "10Sms", Id: "2015inv10sms", Purchase: "No", Consumed: 0, Own: 0 },
+  {
+    Feature: "10iBooks",
+    Id: "2015inv10save",
+    Purchase: "No",
+    Consumed: 0,
+    Own: 0,
+  },
+  {
+    Feature: "email-print-save",
+    Id: "2015invSavePrintEmail",
+    Purchase: "Yes",
+    Consumed: 0,
+    Own: 10,
+  },
+  {
+    Feature: "email-second-print-save",
+    Id: "2015inv500SavePrintEmail",
+    Purchase: "No",
+    Consumed: 0,
+    Own: 0,
+  },
+  {
+    Feature: "email-third-print-save",
+    Id: "2015inv1000SavePrintEmail",
+    Purchase: "No",
+    Consumed: 0,
+    Own: 0,
+  },
+];
+
+export let CLOUDINAPP = [
+  { Feature: "save", Id: "2015invCloud", Purchase: "Yes", Consumed: 0, Own: 5 },
+];
