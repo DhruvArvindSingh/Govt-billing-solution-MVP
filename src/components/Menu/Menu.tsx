@@ -13,390 +13,18 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import PasswordModal from '../PasswordModal/PasswordModal';
+import { exportSpreadsheetAsPDF } from '../../services/exportAsPdf';
+import { exportCSV, parseSocialCalcCSV, cleanCSVContent, validateCSVContent } from '../../services/exportAsCsv';
+import { exportAllSheetsAsPDF as exportWorkbookPDFService } from '../../services/exportAllSheetsAsPdf';
 // import JSZip from 'jszip'; // Will be added later for zip functionality
 
-// Export interfaces and types
-export interface ExportAllSheetsOptions {
-  filename?: string;
-  format?: "a4" | "letter" | "legal";
-  orientation?: "portrait" | "landscape";
-  margin?: number;
-  quality?: number;
-  onProgress?: (message: string) => void;
-  returnBlob?: boolean;
-}
 
-export interface SheetData {
-  id: string;
-  name: string;
-  element: HTMLElement;
-}
 
-// Function to export all sheets as PDF using the new logic structure
-const exportWorkbookAsPdf = async () => {
-  const options: ExportAllSheetsOptions = {
-    filename: "workbook_export",
-    format: "a4",
-    orientation: "portrait",
-    margin: 15,
-    quality: 1.5,
-    returnBlob: false,
-  };
 
-  // Show loading overlay with progress
-  const loadingOverlay = document.createElement('div');
-  loadingOverlay.id = 'pdf-export-loading';
-  loadingOverlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
-    color: white;
-    font-family: Arial, sans-serif;
-  `;
 
-  const spinner = document.createElement('div');
-  spinner.style.cssText = `
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
-  `;
 
-  const loadingText = document.createElement('div');
-  loadingText.style.cssText = `
-    font-size: 18px;
-    font-weight: bold;
-    text-align: center;
-  `;
-  loadingText.textContent = 'Exporting Workbook as PDF...';
 
-  const progressText = document.createElement('div');
-  progressText.id = 'export-progress';
-  progressText.style.cssText = `
-    font-size: 14px;
-    margin-top: 10px;
-    text-align: center;
-  `;
-  progressText.textContent = 'Preparing export...';
 
-  // Add CSS animation for spinner
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(style);
-
-  loadingOverlay.appendChild(spinner);
-  loadingOverlay.appendChild(loadingText);
-  loadingOverlay.appendChild(progressText);
-  document.body.appendChild(loadingOverlay);
-
-  const updateProgress = (message: string) => {
-    const progressElement = document.getElementById('export-progress');
-    if (progressElement) {
-      progressElement.textContent = message;
-    }
-  };
-
-  // Set progress callback
-  options.onProgress = updateProgress;
-
-  try {
-    updateProgress('Getting sheet information...');
-
-    // Get device type to determine footer structure
-    const getDeviceType = () => {
-      if (navigator.userAgent.match(/iPod/)) return "iPod";
-      if (navigator.userAgent.match(/iPad/)) return "iPad";
-      if (navigator.userAgent.match(/iPhone/)) return "iPhone";
-      if (navigator.userAgent.match(/Android/)) return "Android";
-      return "default";
-    };
-
-    // Import DATA dynamically to get the current footers
-    const { DATA } = await import("../../app-data.js");
-    const deviceType = getDeviceType();
-    const footers = DATA["home"][deviceType]["footers"];
-
-    if (!footers || footers.length === 0) {
-      throw new Error("No sheets found to export");
-    }
-
-    updateProgress(`Found ${footers.length} sheets to collect...`);
-
-    // Collect all sheet data
-    const sheetsData: SheetData[] = [];
-    const spreadsheetContainer = document.getElementById('te_fullgrid');
-
-    if (!spreadsheetContainer) {
-      throw new Error('Spreadsheet container not found');
-    }
-
-    // Store original sheet index to restore later
-    const originalSheet = 1;
-
-    for (let i = 1; i <= footers.length; i++) {
-      const currentFooter = footers[i - 1];
-      const sheetName = currentFooter?.name || `Sheet ${i}`;
-
-      updateProgress(`Collecting data from ${sheetName} (${i}/${footers.length})...`);
-
-      try {
-        // Switch to the sheet
-        AppGeneral.activateFooterButton(i);
-
-        // Wait for sheet to render
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Clone the spreadsheet container
-        const clonedElement = spreadsheetContainer.cloneNode(true) as HTMLElement;
-
-        // Store the sheet data
-        sheetsData.push({
-          id: `sheet_${i}`,
-          name: sheetName,
-          element: clonedElement
-        });
-
-      } catch (error) {
-        console.error(`Error collecting sheet ${i}:`, error);
-        // Continue with other sheets even if one fails
-      }
-    }
-
-    // Return to original sheet
-    AppGeneral.activateFooterButton(originalSheet);
-
-    if (sheetsData.length === 0) {
-      throw new Error("No sheet data could be collected");
-    }
-
-    updateProgress(`Processing ${sheetsData.length} sheets for PDF export...`);
-
-    // Use the new export logic
-    await exportAllSheetsAsPDF(sheetsData, options);
-
-  } catch (error) {
-    console.error('Error in workbook PDF export:', error);
-    alert(`Error exporting workbook: ${(error as Error).message}`);
-  } finally {
-    // Clean up loading overlay
-    const loadingElement = document.getElementById('pdf-export-loading');
-    if (loadingElement) {
-      loadingElement.remove();
-    }
-
-    // Remove the animation style
-    const styleElements = document.querySelectorAll('style');
-    styleElements.forEach(style => {
-      if (style.textContent?.includes('@keyframes spin')) {
-        style.remove();
-      }
-    });
-  }
-};
-
-// Main export function following the provided logic structure
-const exportAllSheetsAsPDF = async (
-  sheetsData: SheetData[],
-  options: ExportAllSheetsOptions = {}
-): Promise<void | Blob> => {
-  const {
-    filename = "workbook_export",
-    format = "a4",
-    orientation = "landscape",
-    margin = 15,
-    quality = 1.5,
-    onProgress,
-    returnBlob = false,
-  } = options;
-
-  try {
-    if (!sheetsData || sheetsData.length === 0) {
-      throw new Error("No sheets data provided");
-    }
-
-    onProgress?.(`Starting export of ${sheetsData.length} sheets...`);
-
-    // Create PDF document
-    const pdf = new jsPDF({
-      orientation: orientation,
-      unit: "mm",
-      format: format,
-    });
-
-    const pageWidth = pdf.internal.pageSize.getWidth() - margin * 2;
-    const pageHeight = pdf.internal.pageSize.getHeight() - margin * 2;
-
-    // Remove the first empty page
-    pdf.deletePage(1);
-
-    for (let i = 0; i < sheetsData.length; i++) {
-      const sheet = sheetsData[i];
-
-      onProgress?.(
-        `Processing sheet ${i + 1}/${sheetsData.length}: ${sheet.name}...`
-      );
-
-      // Create temporary container for each sheet
-      const tempContainer = document.createElement("div");
-      tempContainer.appendChild(sheet.element.cloneNode(true));
-      tempContainer.style.position = "absolute";
-      tempContainer.style.left = "-9999px";
-      tempContainer.style.top = "-9999px";
-      tempContainer.style.width = "210mm"; // A4 portrait width
-      tempContainer.style.padding = "20px";
-      tempContainer.style.backgroundColor = "white";
-      tempContainer.style.color = "#000";
-      tempContainer.style.fontFamily = "Arial, sans-serif";
-      tempContainer.style.fontSize = "12px";
-      tempContainer.style.lineHeight = "1.4";
-
-      // Add sheet title
-      const titleElement = document.createElement("h2");
-      titleElement.textContent = sheet.name;
-      titleElement.style.marginBottom = "20px";
-      titleElement.style.color = "#333";
-      titleElement.style.borderBottom = "2px solid #333";
-      titleElement.style.paddingBottom = "10px";
-      titleElement.style.fontSize = "16px";
-      titleElement.style.fontWeight = "bold";
-      tempContainer.insertBefore(titleElement, tempContainer.firstChild);
-
-      document.body.appendChild(tempContainer);
-
-      try {
-        onProgress?.(`Rendering sheet ${i + 1} to canvas...`);
-
-        // Convert HTML to canvas with higher quality
-        const canvas = await html2canvas(tempContainer, {
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: "#ffffff",
-          width: tempContainer.scrollWidth,
-          height: tempContainer.scrollHeight,
-          scale: quality,
-          logging: false,
-          removeContainer: false,
-        } as any);
-
-        // Calculate dimensions for PDF
-        const imgWidth = pageWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        // Add new page for each sheet
-        pdf.addPage();
-
-        onProgress?.(`Adding sheet ${i + 1} to PDF...`);
-
-        // If content fits on one page
-        if (imgHeight <= pageHeight) {
-          pdf.addImage(
-            canvas.toDataURL("image/png", 0.95),
-            "PNG",
-            margin,
-            margin,
-            imgWidth,
-            imgHeight,
-            undefined,
-            "FAST"
-          );
-        } else {
-          // Content spans multiple pages
-          let heightLeft = imgHeight;
-          let position = margin;
-
-          // Add first part
-          pdf.addImage(
-            canvas.toDataURL("image/png", 0.95),
-            "PNG",
-            margin,
-            position,
-            imgWidth,
-            imgHeight,
-            undefined,
-            "FAST"
-          );
-
-          heightLeft -= pageHeight;
-
-          // Add continuation pages for this sheet if needed
-          while (heightLeft >= 0) {
-            position = heightLeft - imgHeight + margin;
-            pdf.addPage();
-            pdf.addImage(
-              canvas.toDataURL("image/png", 0.95),
-              "PNG",
-              margin,
-              position,
-              imgWidth,
-              imgHeight,
-              undefined,
-              "FAST"
-            );
-            heightLeft -= pageHeight;
-          }
-        }
-      } finally {
-        // Always remove the temporary container
-        document.body.removeChild(tempContainer);
-      }
-    }
-
-    onProgress?.("Finalizing PDF...");
-
-    // Generate filename with current date
-    const currentDate = new Date().toISOString().split('T')[0];
-    const finalFilename = `${filename}_${currentDate}`;
-
-    if (returnBlob) {
-      onProgress?.("PDF generated successfully!");
-      return pdf.output("blob");
-    } else {
-      // Handle mobile vs web differently
-      if (isPlatform('hybrid')) {
-        onProgress?.("Preparing file for mobile sharing...");
-        // Mobile - save and share
-        const pdfBase64 = pdf.output('datauristring').split(',')[1];
-        const result = await Filesystem.writeFile({
-          path: `${finalFilename}.pdf`,
-          data: pdfBase64,
-          directory: Directory.Documents,
-          encoding: Encoding.UTF8
-        });
-
-        await Share.share({
-          title: 'Export Workbook PDF',
-          text: `${APP_NAME} - ${finalFilename}.pdf`,
-          url: result.uri,
-          dialogTitle: 'Share Workbook PDF'
-        });
-      } else {
-        // Web - direct download
-        pdf.save(`${finalFilename}.pdf`);
-      }
-
-      onProgress?.(`PDF with ${sheetsData.length} sheets saved successfully!`);
-    }
-  } catch (error) {
-    console.error("Error generating combined PDF:", error);
-    throw new Error("Failed to generate combined PDF. Please try again.");
-  }
-};
 
 
 const Menu: React.FC<{
@@ -628,69 +256,32 @@ const Menu: React.FC<{
 
   const exportAsCsv = async () => {
     setIsLoading(true);
-    setLoadingMessage("Exporting CSV file...");
+    setLoadingMessage("Preparing CSV export...");
 
     try {
-      // Get CSV content from SocialCalc
-      const csvContent = AppGeneral.getCSVContent();
+      // Get and validate CSV content from SocialCalc
+      const rawCsvContent = AppGeneral.getCleanCSVContent();
 
-      // Generate filename with current date and selected file name
-      const currentDate = new Date().toISOString().split('T')[0];
-      const filename = `${getCurrentFileName()}_${currentDate}.csv`;
-
-      if (isPlatform('hybrid')) {
-        // Mobile device - use Capacitor Filesystem and Share
-        setLoadingMessage("Preparing CSV for mobile sharing...");
-        try {
-          // Write file to device storage
-          const result = await Filesystem.writeFile({
-            path: filename,
-            data: csvContent,
-            directory: Directory.Documents,
-            encoding: Encoding.UTF8
-          });
-
-          setLoadingMessage("Sharing CSV file...");
-
-          // Share the file
-          await Share.share({
-            title: 'Export CSV',
-            text: `${APP_NAME} - ${filename}`,
-            url: result.uri,
-            dialogTitle: 'Share CSV File'
-          });
-
-          setToastMessage('CSV file exported and ready to share!');
-          setShowToast1(true);
-        } catch (mobileError) {
-          console.error('Mobile CSV export error:', mobileError);
-          setToastMessage('Error exporting CSV file on mobile. Please try again.');
-          setShowToast1(true);
-        }
-      } else {
-        // Web browser - use traditional download
-        setLoadingMessage("Preparing CSV download...");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-
-        // Trigger download
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Clean up URL
-        URL.revokeObjectURL(url);
-
-        setToastMessage('CSV file downloaded successfully!');
-        setShowToast1(true);
+      // Validate CSV content
+      const validation = validateCSVContent(rawCsvContent);
+      if (!validation.isValid) {
+        throw new Error(validation.error || "Invalid CSV content");
       }
+
+      // Clean and parse the CSV content
+      const cleanedCsvContent = cleanCSVContent(rawCsvContent);
+
+      // Use the new export service
+      await exportCSV(cleanedCsvContent, {
+        filename: getCurrentFileName(),
+        onProgress: setLoadingMessage,
+      });
+
+      setToastMessage('CSV file exported successfully!');
+      setShowToast1(true);
     } catch (error) {
-      console.error('Error downloading CSV:', error);
-      setToastMessage('Error downloading CSV file. Please try again.');
+      console.error('Error exporting CSV:', error);
+      setToastMessage(`Error exporting CSV: ${(error as Error).message}`);
       setShowToast1(true);
     } finally {
       setIsLoading(false);
@@ -703,202 +294,24 @@ const Menu: React.FC<{
     setLoadingMessage("Preparing PDF export...");
 
     try {
-      // Always use DOM capture method for more reliable results
-      // Get the spreadsheet container by id and clone it
-      const spreadsheetContainer = document.getElementById('te_fullgrid');
-      const spreadsheetClone = spreadsheetContainer ? spreadsheetContainer.cloneNode(true) as HTMLElement : null;
-      // Remove all child HTML inside the cloned spreadsheet container
-      if (spreadsheetClone) {
-        while (spreadsheetClone.firstChild) {
-          spreadsheetClone.removeChild(spreadsheetClone.firstChild);
-        }
-      }
+      // Get the spreadsheet container
+      const spreadsheetContainer = AppGeneral.getSpreadsheetElement();
 
       if (!spreadsheetContainer) {
         throw new Error('Spreadsheet container not found');
       }
-      // Append the colgroup tag present in the spreadsheetContainer into the spreadsheetClone
-      if (spreadsheetContainer && spreadsheetClone) {
-        const colgroup = spreadsheetContainer.querySelector('colgroup');
-        if (colgroup) {
-          spreadsheetClone.appendChild(colgroup.cloneNode(true));
-        }
-      }
 
-      // Find the grid container specifically (where the data is displayed)
-      const gridContainer = spreadsheetContainer;
-
-      setLoadingMessage("Rendering spreadsheet content...");
-
-      // Ensure the spreadsheet is fully rendered and visible
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      setLoadingMessage("Creating PDF image...");
-
-      // Create PDF directly from the visible spreadsheet element
-      const canvas = await html2canvas(gridContainer as HTMLElement, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        width: gridContainer.scrollWidth,
-        height: gridContainer.scrollHeight,
-        foreignObjectRendering: false,
-        imageTimeout: 0,
-        removeContainer: false
-      } as any);
-
-      setLoadingMessage("Generating PDF document...");
-
-      // Create PDF with A4 portrait orientation
-      const imgData = canvas.toDataURL('image/png');
-
-      // Always use portrait orientation for A4 size
-      const orientation = 'portrait';
-
-      const pdf = new jsPDF({
-        orientation: orientation,
-        unit: 'mm',
-        format: 'a4'
+      // Use the new export service
+      await exportSpreadsheetAsPDF(spreadsheetContainer, {
+        filename: getCurrentFileName(),
+        orientation: 'portrait',
+        format: 'a4',
+        quality: 2,
+        onProgress: setLoadingMessage,
       });
 
-      // Calculate dimensions for A4 portrait
-      const pdfWidth = 210; // A4 portrait width
-      const pdfHeight = 297; // A4 portrait height
-      const margin = 8; // Small margin for professional look
-      const availableWidth = pdfWidth - (margin * 2);
-      const availableHeight = pdfHeight - (margin * 2);
-
-      // For invoice documents, we want to maximize the size while maintaining readability
-      // Scale the content to use most of the available space
-      const scaleFactor = Math.min(
-        availableWidth / (canvas.width * 0.75), // Scale based on canvas width with padding
-        availableHeight / (canvas.height * 0.75) // Scale based on canvas height with padding
-      );
-
-      // Calculate final dimensions with scaling
-      let imgWidth = canvas.width * scaleFactor;
-      let imgHeight = canvas.height * scaleFactor;
-
-      // Ensure minimum size for readability
-      const minWidth = availableWidth * 0.8; // At least 80% of available width
-      const minHeight = availableHeight * 0.6; // At least 60% of available height
-
-      if (imgWidth < minWidth) {
-        const widthScale = minWidth / imgWidth;
-        imgWidth = minWidth;
-        imgHeight = imgHeight * widthScale;
-      }
-
-      if (imgHeight < minHeight && imgHeight <= availableHeight) {
-        const heightScale = minHeight / imgHeight;
-        imgHeight = minHeight;
-        imgWidth = imgWidth * heightScale;
-      }
-
-      // Ensure we don't exceed page boundaries
-      if (imgWidth > availableWidth) {
-        const widthScale = availableWidth / imgWidth;
-        imgWidth = availableWidth;
-        imgHeight = imgHeight * widthScale;
-      }
-
-      // Center the image on the page
-      const xPos = (pdfWidth - imgWidth) / 2;
-      const yPos = (pdfHeight - imgHeight) / 2; // Center vertically
-
-      // Check if content fits on one page
-      if (imgHeight <= availableHeight) {
-        // Single page - perfectly centered
-        pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
-      } else {
-        // Multi-page handling for tall content
-        // For multi-page documents, we'll scale down to fit pages better
-        const pageScale = availableHeight / imgHeight;
-        const scaledWidth = imgWidth * pageScale;
-        const scaledHeight = availableHeight;
-        const scaledXPos = (pdfWidth - scaledWidth) / 2;
-
-        let remainingHeight = canvas.height;
-        let sourceY = 0;
-        let pageCount = 0;
-        const pixelsPerPage = canvas.height * pageScale;
-
-        while (remainingHeight > 0) {
-          if (pageCount > 0) {
-            pdf.addPage();
-          }
-
-          const currentPagePixels = Math.min(remainingHeight, pixelsPerPage);
-          const currentPageHeight = (currentPagePixels / canvas.height) * scaledHeight;
-
-          // Create a temporary canvas for this page section
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d');
-          tempCanvas.width = canvas.width;
-          tempCanvas.height = currentPagePixels;
-
-          if (tempCtx) {
-            // Draw the portion of the original canvas for this page
-            tempCtx.drawImage(canvas, 0, sourceY, canvas.width, currentPagePixels, 0, 0, canvas.width, currentPagePixels);
-            const tempImgData = tempCanvas.toDataURL('image/png');
-
-            // Add this section to the PDF, centered on page
-            const pageYPos = margin + ((availableHeight - currentPageHeight) / 2);
-            pdf.addImage(tempImgData, 'PNG', scaledXPos, pageYPos, scaledWidth, currentPageHeight);
-          }
-
-          sourceY += currentPagePixels;
-          remainingHeight -= currentPagePixels;
-          pageCount++;
-        }
-      }
-
-      // Generate filename with current date and selected file name
-      const currentDate = new Date().toISOString().split('T')[0];
-      const filename = `${getCurrentFileName()}_${currentDate}.pdf`;
-
-      if (isPlatform('hybrid')) {
-        // Mobile device - use Capacitor Filesystem and Share
-        setLoadingMessage("Preparing PDF for mobile sharing...");
-        try {
-          // Convert PDF to base64
-          const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-          // Write file to device storage
-          const result = await Filesystem.writeFile({
-            path: filename,
-            data: pdfBase64,
-            directory: Directory.Documents,
-            encoding: Encoding.UTF8
-          });
-
-          setLoadingMessage("Sharing PDF file...");
-
-          // Share the PDF file
-          await Share.share({
-            title: 'Export PDF',
-            text: `${APP_NAME} - ${filename}`,
-            url: result.uri,
-            dialogTitle: 'Share PDF File'
-          });
-
-          setToastMessage('PDF file exported and ready to share!');
-          setShowToast1(true);
-        } catch (mobileError) {
-          console.error('Mobile PDF export error:', mobileError);
-          setToastMessage('Error exporting PDF file on mobile. Please try again.');
-          setShowToast1(true);
-        }
-      } else {
-        // Web browser - use traditional download
-        setLoadingMessage("Downloading PDF file...");
-        pdf.save(filename);
-
-        setToastMessage('PDF file downloaded successfully!');
-        setShowToast1(true);
-      }
+      setToastMessage('PDF file exported successfully!');
+      setShowToast1(true);
     } catch (error) {
       console.error('Error generating PDF:', error);
       setToastMessage('Error generating PDF file. Please try again.');
@@ -1018,6 +431,41 @@ const Menu: React.FC<{
       console.error('Error adding logo to app:', error);
       setToastMessage("Error adding logo. Please try again.");
       setShowToast1(true);
+    }
+  };
+
+  // Workbook PDF export function using the new service
+  const exportWorkbookAsPdf = async () => {
+    setIsLoading(true);
+    setLoadingMessage("Preparing workbook export...");
+
+    try {
+      // Get all sheets data from SocialCalc
+      const sheetsData = AppGeneral.getAllSheetsData();
+
+      if (!sheetsData || sheetsData.length === 0) {
+        throw new Error("No sheets found to export");
+      }
+
+      // Use the new export service
+      await exportWorkbookPDFService(sheetsData, {
+        filename: "workbook_export",
+        format: "a4",
+        orientation: "landscape",
+        margin: 15,
+        quality: 1.5,
+        onProgress: setLoadingMessage,
+      });
+
+      setToastMessage(`Workbook PDF with ${sheetsData.length} sheets exported successfully!`);
+      setShowToast1(true);
+    } catch (error) {
+      console.error('Error exporting workbook PDF:', error);
+      setToastMessage(`Error exporting workbook PDF: ${(error as Error).message}`);
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 

@@ -601,3 +601,127 @@ export function executeCommand(cmdline) {
   var editor = control.workbook.spreadsheet.editor;
   editor.EditorScheduleSheetCommands(cmdline, true, false);
 }
+
+// Enhanced export functions for new services
+
+export function getAllSheetsData() {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  if (!control || !control.sheetButtonArr) {
+    throw new Error("No sheets available");
+  }
+
+  var sheetsData = [];
+  var currentSheet = control.currentSheetButton.id;
+
+  for (var sheetId in control.sheetButtonArr) {
+    try {
+      // Switch to each sheet to get its content
+      SocialCalc.WorkBookControlActivateSheet(sheetId);
+
+      var htmlContent = control.workbook.spreadsheet.CreateSheetHTML();
+      var sheetName = control.sheetButtonArr[sheetId].value || sheetId;
+
+      sheetsData.push({
+        id: sheetId,
+        name: sheetName,
+        htmlContent: htmlContent
+      });
+    } catch (error) {
+      console.error('Error getting data for sheet ' + sheetId + ':', error);
+    }
+  }
+
+  // Switch back to original sheet
+  SocialCalc.WorkBookControlActivateSheet(currentSheet);
+
+  return sheetsData;
+}
+
+export function getEnhancedWorkbookInfo() {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  if (!control) {
+    return null;
+  }
+
+  return {
+    numSheets: control.numSheets,
+    currentSheet: control.currentSheetButton ? control.currentSheetButton.id : null,
+    sheets: Object.keys(control.sheetButtonArr || {})
+  };
+}
+
+export function getSheetContent(sheetId) {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  if (!control || !control.sheetButtonArr[sheetId]) {
+    throw new Error('Sheet not found: ' + sheetId);
+  }
+
+  var currentSheet = control.currentSheetButton.id;
+
+  try {
+    // Switch to the requested sheet
+    SocialCalc.WorkBookControlActivateSheet(sheetId);
+
+    var htmlContent = control.workbook.spreadsheet.CreateSheetHTML();
+    var csvContent = getCSVContent();
+    var sheetName = control.sheetButtonArr[sheetId].value || sheetId;
+
+    return {
+      id: sheetId,
+      name: sheetName,
+      htmlContent: htmlContent,
+      csvContent: csvContent
+    };
+  } finally {
+    // Always switch back to original sheet
+    SocialCalc.WorkBookControlActivateSheet(currentSheet);
+  }
+}
+
+export function getSpreadsheetElement() {
+  return document.getElementById('te_fullgrid');
+}
+
+export function validateSpreadsheetState() {
+  var control = SocialCalc.GetCurrentWorkBookControl();
+  if (!control || !control.workbook || !control.workbook.spreadsheet) {
+    throw new Error("Spreadsheet not initialized");
+  }
+  return true;
+}
+
+export function getCleanCSVContent() {
+  try {
+    var csvContent = getCSVContent();
+    if (!csvContent) {
+      throw new Error("No CSV content available");
+    }
+
+    // Clean up the CSV content
+    var lines = csvContent.split('\n');
+    var cleanedLines = lines
+      .filter(function (line) { return line.trim() !== ''; })
+      .map(function (line) { return line.trim(); });
+
+    return cleanedLines.join('\n');
+  } catch (error) {
+    console.error('Error getting clean CSV content:', error);
+    throw new Error('Failed to generate CSV content');
+  }
+}
+
+export function getExportReadyHTMLContent() {
+  try {
+    validateSpreadsheetState();
+    var htmlContent = getCurrentHTMLContent();
+
+    if (!htmlContent || htmlContent.trim() === '') {
+      throw new Error("No HTML content available for export");
+    }
+
+    return htmlContent;
+  } catch (error) {
+    console.error('Error getting export-ready HTML content:', error);
+    throw new Error('Failed to generate HTML content for export');
+  }
+}
