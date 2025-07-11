@@ -5,7 +5,16 @@ const config: CapacitorConfig = {
   appName: 'GovtInvoiceNew',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    allowNavigation: [
+      'http://localhost:*',
+      'http://192.168.*.*:*',
+      'http://10.*.*.*:*',
+      'http://*'
+    ]
+  },
+  android: {
+    allowMixedContent: true
   }
 };
 

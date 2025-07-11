@@ -103,6 +103,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         setLoading(true);
 
         try {
+            console.log('Attempting login with server URL:', import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888');
+            console.log('Environment variables:', {
+                VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+                NODE_ENV: import.meta.env.NODE_ENV,
+                MODE: import.meta.env.MODE
+            });
+
             // Only call signin; signup is handled within signin
             const response = await ApiService.signin({
                 email: formData.email,
@@ -119,7 +126,28 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
             }
         } catch (error: any) {
             console.error('Login error:', error);
-            alert(error.response?.data?.message || error.message || 'Login failed. Please try again.');
+            console.error('Error details:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                config: error.config
+            });
+
+            let errorMessage = 'Login failed. Please try again.';
+
+            if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+                errorMessage = `Network Error: Cannot connect to server at ${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}. Please check your internet connection.`;
+            } else if (error.response?.status === 404) {
+                errorMessage = 'Server endpoint not found. Please check server configuration.';
+            } else if (error.response?.status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            alert(errorMessage);
         } finally {
             setLoading(false);
         }
