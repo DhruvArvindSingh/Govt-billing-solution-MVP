@@ -28,6 +28,7 @@ import SimpleModal from "../components/Login/SimpleModal";
 import ApiService from "../components/service/Apiservice";
 import { useApp } from "../contexts/AppContext";
 import AUTO_SAVE_CONFIG, { isAutoSaveEnabled } from "../config/autosave.config";
+import { App } from '@capacitor/app';
 
 const Home: React.FC = () => {
   // Use AppContext for state management
@@ -46,6 +47,7 @@ const Home: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [currentFilePassword, setCurrentFilePassword] = useState<string | null>(null);
+  const [showSaveNotification, setShowSaveNotification] = useState(false);
 
   // Auto-save related state
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -105,7 +107,53 @@ const Home: React.FC = () => {
   useEffect(() => {
     const data = DATA["home"][getDeviceType()]["msc"];
     AppGeneral.initializeApp(JSON.stringify(data));
+
+    // Check authentication status on app start
+    // This will set the login button to logout if token is present
     checkAuthStatus();
+
+    // Add beforeunload event listener to handle app close (web browsers)
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      handleAppClose();
+      // For some browsers, we need to set returnValue to trigger the beforeunload
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Add mobile app lifecycle listeners (mobile apps)
+    let appStateListener: any;
+    let backButtonListener: any;
+
+    if (isPlatform('hybrid')) {
+      // Listen for app state changes (background/foreground)
+      appStateListener = App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          // App is going to background, save current work
+          handleAppClose();
+        }
+      });
+
+      // Listen for back button (Android)
+      backButtonListener = App.addListener('backButton', ({ canGoBack }) => {
+        if (!canGoBack) {
+          // App is about to exit, save current work
+          handleAppClose();
+          App.exitApp();
+        }
+      });
+    }
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+      if (backButtonListener) {
+        backButtonListener.remove();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -135,12 +183,28 @@ const Home: React.FC = () => {
 
   const checkAuthStatus = async () => {
     try {
+      // First check if token exists in localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsLoggedIn(false);
+        return;
+      }
+
+      // If token exists, verify it with the server
       const response = await ApiService.checkAuth();
       if (response.success && response.authenticated) {
         setIsLoggedIn(true);
+      } else {
+        // Token is invalid, clear it and set logged out state
+        localStorage.removeItem('token');
+        localStorage.removeItem('email');
+        setIsLoggedIn(false);
       }
     } catch (error) {
       console.log('Auth check failed:', error);
+      // On error, check if we have a token and assume logged in state
+      const token = localStorage.getItem('token');
+      setIsLoggedIn(!!token);
     }
   };
 
@@ -161,6 +225,84 @@ const Home: React.FC = () => {
     alert('Successfully logged out!');
 
     setAuthLoading(false);
+  };
+
+  // Function to generate timestamped filename for default files
+  // Format: YYYYMMDD_HHMMSS (e.g., 20241201_143022)
+  const generateTimestampedFilename = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+  };
+
+  // Handle app close - save current file if needed
+  const handleAppClose = () => {
+    try {
+      // Get current spreadsheet content
+      const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
+
+      // Check if we have content to save
+      if (!content || content === encodeURIComponent('')) {
+        return;
+      }
+
+      // Show save notification
+      setShowSaveNotification(true);
+
+      if (selectedFile === 'default') {
+        // For default file, save with timestamped name
+        const timestampedName = generateTimestampedFilename();
+        const file = new File(
+          new Date().toString(),
+          new Date().toString(),
+          content,
+          timestampedName,
+          billType
+        );
+
+        // Save the file with timestamped name (fire and forget for beforeunload)
+        store._saveFile(file).then(() => {
+          console.log(`Default file saved as: ${timestampedName}`);
+          setShowSaveNotification(false);
+        }).catch(error => {
+          console.error('Error saving default file on app close:', error);
+          setShowSaveNotification(false);
+        });
+      } else {
+        // For existing files, save with current name
+        store._getFile(selectedFile).then(existingData => {
+          const file = new File(
+            existingData?.created || new Date().toString(),
+            new Date().toString(),
+            content,
+            selectedFile,
+            billType
+          );
+
+          // Check if current file is password protected and we have the password
+          if (currentFilePassword && store.isProtectedFile(existingData.content)) {
+            return store._saveProtectedFile(file, currentFilePassword);
+          } else {
+            return store._saveFile(file);
+          }
+        }).then(() => {
+          console.log(`File saved: ${selectedFile}`);
+          setShowSaveNotification(false);
+        }).catch(error => {
+          console.error('Error saving file on app close:', error);
+          setShowSaveNotification(false);
+        });
+      }
+    } catch (error) {
+      console.error('Error during app close save:', error);
+      setShowSaveNotification(false);
+    }
   };
 
   // Auto-save function with debouncing and retry logic
@@ -404,6 +546,34 @@ const Home: React.FC = () => {
           }}
           onLoginSuccess={handleLoginSuccess}
         />
+
+        {/* Save notification */}
+        {showSaveNotification && (
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <div style={{
+              width: '20px',
+              height: '20px',
+              border: '2px solid #f3f3f3',
+              borderTop: '2px solid #ffffff',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <span>Saving file...</span>
+          </div>
+        )}
       </IonContent>
     </IonPage>
   );
