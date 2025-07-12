@@ -227,19 +227,6 @@ const Home: React.FC = () => {
     setAuthLoading(false);
   };
 
-  // Function to generate timestamped filename for default files
-  // Format: YYYYMMDD_HHMMSS (e.g., 20241201_143022)
-  const generateTimestampedFilename = (): string => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-
-    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
-  };
 
   // Handle app close - save current file if needed
   const handleAppClose = () => {
@@ -256,19 +243,18 @@ const Home: React.FC = () => {
       setShowSaveNotification(true);
 
       if (selectedFile === 'default') {
-        // For default file, save with timestamped name
-        const timestampedName = generateTimestampedFilename();
+        // For default file, save with __latest__ name
         const file = new File(
           new Date().toString(),
           new Date().toString(),
           content,
-          timestampedName,
+          '__latest__',
           billType
         );
 
-        // Save the file with timestamped name (fire and forget for beforeunload)
+        // Save the file with __latest__ name (fire and forget for beforeunload)
         store._saveFile(file).then(() => {
-          console.log(`Default file saved as: ${timestampedName}`);
+          console.log(`Default file saved as: __latest__`);
           setShowSaveNotification(false);
         }).catch(error => {
           console.error('Error saving default file on app close:', error);

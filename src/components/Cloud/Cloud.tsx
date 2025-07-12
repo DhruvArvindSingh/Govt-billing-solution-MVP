@@ -641,21 +641,21 @@ const Cloud: React.FC<{
         key.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    return (
-        <React.Fragment>
-            <IonIcon
-                icon={cloud}
-                className="ion-padding-end"
-                slot="end"
-                size="large"
-                onClick={() => setShowModal(true)}
-            />
+    // Check if user is authenticated before opening cloud modal
+    const handleCloudClick = () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setToastMessage('Please sign in first to access cloud storage');
+            setShowToast(true);
+            return;
+        }
+        setShowModal(true);
+    };
 
-            <IonModal
-                isOpen={showModal}
-                onDidDismiss={() => setShowModal(false)}
-                className="cloud-modal"
-            >
+    // Create the cloud page content
+    const createCloudPage = () => {
+        return (
+            <IonModal isOpen={showModal} onDidDismiss={() => setShowModal(false)} className="cloud-modal">
                 <IonHeader>
                     <IonToolbar>
                         <IonTitle>Cloud Storage</IonTitle>
@@ -879,16 +879,40 @@ const Cloud: React.FC<{
                         </div>
                     )}
 
-                    <IonButton
-                        expand="block"
-                        color="medium"
-                        className="close-button"
-                        onClick={() => setShowModal(false)}
-                    >
-                        Close
-                    </IonButton>
+                    <div style={{
+                        position: 'fixed',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: '16px',
+                        backgroundColor: 'white',
+                        borderTop: '1px solid #e0e0e0',
+                        zIndex: 1000
+                    }}>
+                        <IonButton
+                            expand="block"
+                            color="secondary"
+                            onClick={() => setShowModal(false)}
+                        >
+                            Back
+                        </IonButton>
+                    </div>
                 </IonContent>
             </IonModal>
+        );
+    };
+
+    return (
+        <React.Fragment>
+            <IonIcon
+                icon={cloud}
+                className="ion-padding-end"
+                slot="end"
+                size="large"
+                onClick={handleCloudClick}
+            />
+
+            {showModal && createCloudPage()}
 
             <IonAlert
                 animated
