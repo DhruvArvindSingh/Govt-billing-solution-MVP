@@ -127,21 +127,53 @@ export const exportHTMLAsPDF = async (
             // Handle mobile vs web differently
             if (isPlatform('hybrid')) {
                 onProgress?.("Preparing file for mobile sharing...");
-                // Mobile - save and share
-                const pdfBase64 = pdf.output('datauristring').split(',')[1];
-                const result = await Filesystem.writeFile({
-                    path: `${finalFilename}.pdf`,
-                    data: pdfBase64,
-                    directory: Directory.Documents,
-                    encoding: Encoding.UTF8
-                });
 
-                await Share.share({
-                    title: 'Export PDF',
-                    text: `${finalFilename}.pdf`,
-                    url: result.uri,
-                    dialogTitle: 'Share PDF File'
-                });
+                try {
+                    // Get PDF as blob first for better binary handling
+                    const pdfBlob = pdf.output('blob');
+
+                    // Convert blob to base64
+                    const reader = new FileReader();
+                    const pdfBase64 = await new Promise<string>((resolve, reject) => {
+                        reader.onload = () => {
+                            const result = reader.result as string;
+                            resolve(result.split(',')[1]); // Remove data:application/pdf;base64, prefix
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(pdfBlob);
+                    });
+
+                    // Write file to cache directory for better sharing compatibility
+                    const result = await Filesystem.writeFile({
+                        path: `${finalFilename}.pdf`,
+                        data: pdfBase64,
+                        directory: Directory.Cache
+                    });
+
+                    // Share the file
+                    await Share.share({
+                        title: 'Export PDF',
+                        text: `${finalFilename}.pdf`,
+                        url: result.uri,
+                        dialogTitle: 'Share PDF File'
+                    });
+                } catch (shareError) {
+                    console.error('Error sharing PDF:', shareError);
+                    // Fallback: try to save to documents directory
+                    const pdfBase64 = pdf.output('datauristring').split(',')[1];
+                    const result = await Filesystem.writeFile({
+                        path: `${finalFilename}.pdf`,
+                        data: pdfBase64,
+                        directory: Directory.Documents
+                    });
+
+                    await Share.share({
+                        title: 'Export PDF',
+                        text: `${finalFilename}.pdf`,
+                        url: result.uri,
+                        dialogTitle: 'Share PDF File'
+                    });
+                }
             } else {
                 // Web - direct download
                 pdf.save(`${finalFilename}.pdf`);
@@ -302,20 +334,53 @@ export const exportSpreadsheetAsPDF = async (
             // Handle mobile vs web differently
             if (isPlatform('hybrid')) {
                 onProgress?.("Preparing file for mobile sharing...");
-                const pdfBase64 = pdf.output('datauristring').split(',')[1];
-                const result = await Filesystem.writeFile({
-                    path: `${finalFilename}.pdf`,
-                    data: pdfBase64,
-                    directory: Directory.Documents,
-                    encoding: Encoding.UTF8
-                });
 
-                await Share.share({
-                    title: 'Export PDF',
-                    text: `${finalFilename}.pdf`,
-                    url: result.uri,
-                    dialogTitle: 'Share PDF File'
-                });
+                try {
+                    // Get PDF as blob first for better binary handling
+                    const pdfBlob = pdf.output('blob');
+
+                    // Convert blob to base64
+                    const reader = new FileReader();
+                    const pdfBase64 = await new Promise<string>((resolve, reject) => {
+                        reader.onload = () => {
+                            const result = reader.result as string;
+                            resolve(result.split(',')[1]); // Remove data:application/pdf;base64, prefix
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(pdfBlob);
+                    });
+
+                    // Write file to cache directory for better sharing compatibility
+                    const result = await Filesystem.writeFile({
+                        path: `${finalFilename}.pdf`,
+                        data: pdfBase64,
+                        directory: Directory.Cache
+                    });
+
+                    // Share the file
+                    await Share.share({
+                        title: 'Export PDF',
+                        text: `${finalFilename}.pdf`,
+                        url: result.uri,
+                        dialogTitle: 'Share PDF File'
+                    });
+                } catch (shareError) {
+                    console.error('Error sharing PDF:', shareError);
+                    // Fallback: try to save to documents directory
+                    const pdfBase64 = pdf.output('datauristring').split(',')[1];
+                    const result = await Filesystem.writeFile({
+                        path: `${finalFilename}.pdf`,
+                        data: pdfBase64,
+                        directory: Directory.Documents
+                    });
+
+                    await Share.share({
+                        title: 'Export PDF',
+                        text: `${finalFilename}.pdf`,
+                        url: result.uri,
+                        dialogTitle: 'Share PDF File'
+                    });
+                }
             } else {
                 pdf.save(`${finalFilename}.pdf`);
             }
