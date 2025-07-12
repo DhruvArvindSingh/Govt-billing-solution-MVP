@@ -16,6 +16,7 @@ import PasswordModal from '../PasswordModal/PasswordModal';
 import { exportSpreadsheetAsPDF } from '../../services/exportAsPdf';
 import { exportCSV, parseSocialCalcCSV, cleanCSVContent, validateCSVContent } from '../../services/exportAsCsv';
 import { exportAllSheetsAsPDF as exportWorkbookPDFService } from '../../services/exportAllSheetsAsPdf';
+import ApiService from '../service/Apiservice';
 // import JSZip from 'jszip'; // Will be added later for zip functionality
 
 
@@ -409,27 +410,40 @@ const Menu: React.FC<{
   };
 
   const addLogoToApp = async (imageDataUrl: string) => {
-    setLoadingMessage("Adding logo to spreadsheet...");
+    setLoadingMessage("Uploading logo to server...");
 
     try {
-      // Check if AppGeneral has an addLogo method
-      if (AppGeneral.addLogo) {
-        const deviceType = AppGeneral.getDeviceType ? AppGeneral.getDeviceType() : "default";
-        await AppGeneral.addLogo(LOGO[`${deviceType}`], imageDataUrl);
-        setToastMessage("Logo added successfully");
-        setShowToast1(true);
-      } else {
-        // Fallback: Store logo in localStorage for future use
-        localStorage.setItem('spreadsheet_logo', imageDataUrl);
+      // Extract base64 content from data URL
+      const base64Content = imageDataUrl.split(',')[1]; // Remove "data:image/...;base64," prefix
 
-        // You could also insert the logo into a specific cell or header
-        // This would depend on your spreadsheet implementation
-        setToastMessage("Logo stored successfully. Please refresh to see changes.");
-        setShowToast1(true);
+      // Generate a unique filename for the logo
+      const timestamp = Date.now();
+      const fileName = `logo_${timestamp}.png`;
+
+      // Upload logo to server using the uploadLogo endpoint
+      const response = await ApiService.uploadLogo(fileName, base64Content);
+
+      if (response.success && response.data.signedUrl) {
+        setLoadingMessage("Adding logo to spreadsheet...");
+
+        // Use the signed URL instead of the base64 data
+        if (AppGeneral.addLogo) {
+          const deviceType = AppGeneral.getDeviceType ? AppGeneral.getDeviceType() : "default";
+          await AppGeneral.addLogo(LOGO[`${deviceType}`], response.data.signedUrl);
+          setToastMessage("Logo added successfully");
+          setShowToast1(true);
+        } else {
+          // Fallback: Store logo URL in localStorage for future use
+          localStorage.setItem('spreadsheet_logo_url', response.data.signedUrl);
+          setToastMessage("Logo uploaded successfully. Please refresh to see changes.");
+          setShowToast1(true);
+        }
+      } else {
+        throw new Error(response.message || 'Failed to upload logo');
       }
     } catch (error) {
-      console.error('Error adding logo to app:', error);
-      setToastMessage("Error adding logo. Please try again.");
+      console.error('Error uploading logo:', error);
+      setToastMessage("Error uploading logo. Please try again.");
       setShowToast1(true);
     }
   };

@@ -26,6 +26,18 @@ interface FileContent {
     fileName?: string;
 }
 
+interface LogoUploadResponse {
+    success: boolean;
+    message: string;
+    data: {
+        fileName: string;
+        filePath: string;
+        email: string;
+        signedUrl: string;
+        url: string;
+    };
+}
+
 interface AuthResponse {
     success: boolean;
     authenticated?: boolean;
@@ -430,6 +442,34 @@ class ApiService {
                 status: 'error',
                 timestamp: Date.now()
             };
+        }
+    }
+
+    // Logo Operations
+    static async uploadLogo(fileName: string, content: string): Promise<LogoUploadResponse> {
+        try {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            if (typeof content !== 'string') {
+                throw new Error('Invalid content provided - must be string');
+            }
+
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            const response = await apiClient.post<LogoUploadResponse>('/api/v1/uploadLogo', {
+                token,
+                fileName,
+                content
+            });
+
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, 'upload logo');
         }
     }
 }
