@@ -3,6 +3,21 @@
   overflow: hidden;
 }
 
+/* Prevent layout shifts when keyboard appears */
+ion-content {
+  --keyboard-offset: 0px;
+}
+
+/* Ensure proper positioning on mobile */
+/* @media (max-width: 768px) {
+  #container {
+    position: relative;
+    transition: transform 0.2s ease-in-out;
+  }
+}
+ */
+
+
 /* Auto-save spinner animation */
 @keyframes spin {
   0% {

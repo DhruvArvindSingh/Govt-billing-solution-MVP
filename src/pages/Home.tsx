@@ -29,6 +29,7 @@ import ApiService from "../components/service/Apiservice";
 import { useApp } from "../contexts/AppContext";
 import AUTO_SAVE_CONFIG, { isAutoSaveEnabled } from "../config/autosave.config";
 import { App } from '@capacitor/app';
+import { Keyboard } from '@capacitor/keyboard';
 
 const Home: React.FC = () => {
   // Use AppContext for state management
@@ -54,6 +55,7 @@ const Home: React.FC = () => {
   const cellChangeListenerRef = useRef<(() => void) | null>(null);
   const lastSaveTimeRef = useRef<number>(0);
   const retryCountRef = useRef<number>(0);
+  const containerScrollTopRef = useRef<number>(0);
   const getDeviceType = () => {
     // Use Ionic's isPlatform for more reliable detection
     if (isPlatform("android")) {
@@ -124,6 +126,8 @@ const Home: React.FC = () => {
     // Add mobile app lifecycle listeners (mobile apps)
     let appStateListener: any;
     let backButtonListener: any;
+    let keyboardWillShowListener: any;
+    let keyboardWillHideListener: any;
 
     if (isPlatform('hybrid')) {
       // Listen for app state changes (background/foreground)
@@ -142,6 +146,30 @@ const Home: React.FC = () => {
           App.exitApp();
         }
       });
+
+      // Handle keyboard events
+      keyboardWillShowListener = Keyboard.addListener('keyboardWillShow', () => {
+        // Store current scroll position before keyboard appears
+        const container = document.getElementById('container');
+        if (container) {
+          containerScrollTopRef.current = container.scrollTop || 0;
+        }
+      });
+
+      keyboardWillHideListener = Keyboard.addListener('keyboardWillHide', () => {
+        // Restore scroll position after keyboard disappears
+        setTimeout(() => {
+          const container = document.getElementById('container');
+          if (container) {
+            container.scrollTop = containerScrollTopRef.current;
+          }
+          // Also ensure ion-content scrolls back to original position
+          const ionContent = document.querySelector('ion-content');
+          if (ionContent) {
+            ionContent.scrollToTop(300);
+          }
+        }, 150); // Small delay to ensure keyboard is fully hidden
+      });
     }
 
     // Cleanup function
@@ -152,6 +180,12 @@ const Home: React.FC = () => {
       }
       if (backButtonListener) {
         backButtonListener.remove();
+      }
+      if (keyboardWillShowListener) {
+        keyboardWillShowListener.remove();
+      }
+      if (keyboardWillHideListener) {
+        keyboardWillHideListener.remove();
       }
     };
   }, []);
@@ -440,46 +474,46 @@ const Home: React.FC = () => {
           />
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen>
-        <IonToolbar color="primary">
-          <IonIcon
-            icon={arrowUndo}
-            size="large"
-            onClick={() => AppGeneral.undo()}
-            className="ion-padding-end"
-            slot="end"
-          />
-          <IonIcon
-            icon={arrowRedo}
-            size="large"
-            onClick={() => AppGeneral.redo()}
-            className="ion-padding-end"
-            slot="end"
-          />
-          <Cloud
-            store={store}
-            file={selectedFile}
-            updateSelectedFile={updateSelectedFile}
-            updateBillType={updateBillType}
-          />
-          <Files
-            store={store}
-            file={selectedFile}
-            updateSelectedFile={updateSelectedFile}
-            updateBillType={updateBillType}
-            setCurrentFilePassword={setCurrentFilePassword}
-          />
+      <IonToolbar color="primary">
+        <IonIcon
+          icon={arrowUndo}
+          size="large"
+          onClick={() => AppGeneral.undo()}
+          className="ion-padding-end"
+          slot="end"
+        />
+        <IonIcon
+          icon={arrowRedo}
+          size="large"
+          onClick={() => AppGeneral.redo()}
+          className="ion-padding-end"
+          slot="end"
+        />
+        <Cloud
+          store={store}
+          file={selectedFile}
+          updateSelectedFile={updateSelectedFile}
+          updateBillType={updateBillType}
+        />
+        <Files
+          store={store}
+          file={selectedFile}
+          updateSelectedFile={updateSelectedFile}
+          updateBillType={updateBillType}
+          setCurrentFilePassword={setCurrentFilePassword}
+        />
 
-          <NewFile
-            file={selectedFile}
-            updateSelectedFile={updateSelectedFile}
-            store={store}
-            billType={billType}
-            currentFilePassword={currentFilePassword}
-            setCurrentFilePassword={setCurrentFilePassword}
-          />
-        </IonToolbar>
-        <IonToolbar color="secondary">
+        <NewFile
+          file={selectedFile}
+          updateSelectedFile={updateSelectedFile}
+          store={store}
+          billType={billType}
+          currentFilePassword={currentFilePassword}
+          setCurrentFilePassword={setCurrentFilePassword}
+        />
+      </IonToolbar>
+      <IonContent fullscreen>
+        {/* <IonToolbar color="secondary">
           <IonGrid>
             <IonRow className="ion-nowrap">
               {footers.map((footerArray) => (
@@ -500,7 +534,7 @@ const Home: React.FC = () => {
               ))}
             </IonRow>
           </IonGrid>
-        </IonToolbar>
+        </IonToolbar> */}
 
         <IonFab vertical="bottom" horizontal="end" slot="fixed">
           <IonFabButton type="button" onClick={() => setShowMenu(true)}>
