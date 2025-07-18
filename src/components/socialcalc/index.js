@@ -30,8 +30,38 @@ export function initializeApp(data) {
   // alert("app: "+JSON.stringify(data));
   SocialCalc.WorkBookControlLoad(data);
   let ele = document.getElementById("te_griddiv");
-  ele.style.height = "1600px";
+
+  // Set dynamic height based on viewport instead of fixed 1600px
+  function setGridHeight() {
+    const viewport = SocialCalc.GetViewportInfo();
+    const dynamicHeight = Math.max(
+      viewport.height - 100, // Account for header/controls
+      600 // Minimum height for usability
+    );
+    ele.style.height = dynamicHeight + "px";
+    console.log("Grid height set to: " + dynamicHeight + "px for viewport: " + viewport.width + "x" + viewport.height);
+  }
+
+  setGridHeight();
   spreadsheet.DoOnResize();
+
+  // Add orientation change listener to recalculate grid height
+  if (window.addEventListener) {
+    window.addEventListener("orientationchange", function () {
+      setTimeout(function () {
+        setGridHeight();
+        spreadsheet.DoOnResize();
+      }, 500); // Delay to allow orientation change to complete
+    });
+
+    // Also listen for resize events
+    window.addEventListener("resize", function () {
+      setTimeout(function () {
+        setGridHeight();
+        spreadsheet.DoOnResize();
+      }, 300);
+    });
+  }
 }
 
 export function activateFooterButton(index) {
