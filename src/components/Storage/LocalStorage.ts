@@ -127,6 +127,7 @@ export class Local {
 
   _getFile = async (name: string) => {
     const rawData = await Preferences.get({ key: name });
+    console.log("rawData", rawData.value);
     return JSON.parse(rawData.value);
   };
 
@@ -135,14 +136,49 @@ export class Local {
     const { keys } = await Preferences.keys();
     for (let i = 0; i < keys.length; i++) {
       let fname = keys[i];
-      const data = await this._getFile(fname);
-      arr[fname] = (data as any).modified;
+
+      // Skip metadata keys that are not actual files
+      if (fname === '__last_opened_file__') {
+        continue;
+      }
+
+      try {
+        const data = await this._getFile(fname);
+        arr[fname] = (data as any).modified;
+      } catch (error) {
+        console.warn(`Skipping invalid file entry: ${fname}`, error);
+        // Skip files that can't be parsed (corrupted or invalid format)
+        continue;
+      }
     }
     return arr;
   };
 
   _deleteFile = async (name: string) => {
     await Preferences.remove({ key: name });
+  };
+
+  // Save the last opened filename
+  _saveLastOpenedFile = async (filename: string) => {
+    await Preferences.set({
+      key: '__last_opened_file__',
+      value: filename,
+    });
+  };
+
+  // Get the last opened filename
+  _getLastOpenedFile = async (): Promise<string | null> => {
+    try {
+      const result = await Preferences.get({ key: '__last_opened_file__' });
+      return result.value || null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  // Clear the last opened filename
+  _clearLastOpenedFile = async () => {
+    await Preferences.remove({ key: '__last_opened_file__' });
   };
 
   _checkKey = async (key: string) => {

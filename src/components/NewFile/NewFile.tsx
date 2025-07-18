@@ -48,6 +48,12 @@ const NewFile: React.FC<{
     const msc = DATA["home"][AppGeneral.getDeviceType()]["msc"];
     AppGeneral.viewFile("default", JSON.stringify(msc));
     props.updateSelectedFile("default");
+
+    // Save as last opened file
+    props.store._saveLastOpenedFile("default").catch(error => {
+      console.error('Error saving last opened filename:', error);
+    });
+
     setShowAlertNewFileCreated(true);
   };
 

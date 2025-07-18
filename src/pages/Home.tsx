@@ -25,6 +25,7 @@ import Cloud from "../components/Cloud/Cloud";
 import NewFile from "../components/NewFile/NewFile";
 import Login from "../components/Login/Login";
 import SimpleModal from "../components/Login/SimpleModal";
+import FooterSelector from "../components/FooterSelector/FooterSelector";
 import ApiService from "../components/service/Apiservice";
 import { useApp } from "../contexts/AppContext";
 import AUTO_SAVE_CONFIG, { isAutoSaveEnabled } from "../config/autosave.config";
@@ -106,9 +107,79 @@ const Home: React.FC = () => {
     AppGeneral.activateFooterButton(footer);
   };
 
+  const handleFooterSelect = (index: number) => {
+    updateBillType(index);
+    activateFooter(index);
+  };
+
   useEffect(() => {
-    const data = DATA["home"][getDeviceType()]["msc"];
-    AppGeneral.initializeApp(JSON.stringify(data));
+    const initializeApplication = async () => {
+      try {
+        // Get the last opened filename
+        const lastOpenedFile = await store._getLastOpenedFile();
+        console.log("Last opened file:", lastOpenedFile);
+
+        if (lastOpenedFile) {
+          if (lastOpenedFile === 'default') {
+            // Check if there's a saved "default" file from a previous session
+            try {
+              const defaultFile = await store._getFile("default");
+              if (defaultFile && defaultFile.content) {
+                // Load the saved default file
+                console.log("Loading saved default file from previous session");
+                AppGeneral.viewFile("default", decodeURIComponent(defaultFile.content));
+                updateSelectedFile("default");
+                updateBillType(defaultFile.billType || 1);
+
+                // Delete the default file after loading it
+                await store._deleteFile("default");
+                console.log("Default file loaded and deleted");
+                return;
+              }
+            } catch (error) {
+              console.log("No saved default file found");
+            }
+          } else {
+            // Try to load the last opened named file
+            try {
+              const lastFile = await store._getFile(lastOpenedFile);
+              if (lastFile && lastFile.content) {
+                console.log(`Loading last opened file: ${lastOpenedFile}`);
+
+                // Check if it's a protected file
+                if (store.isProtectedFile(lastFile.content)) {
+                  console.log("Last opened file is protected, loading template instead");
+                  // For protected files, we can't auto-load without password
+                  // So we load template and let user manually open the protected file
+                } else {
+                  AppGeneral.viewFile(lastOpenedFile, decodeURIComponent(lastFile.content));
+                  updateSelectedFile(lastOpenedFile);
+                  updateBillType(lastFile.billType || 1);
+                  console.log(`Last opened file ${lastOpenedFile} restored successfully`);
+                  return;
+                }
+              }
+            } catch (error) {
+              console.log(`Last opened file ${lastOpenedFile} not found in storage`);
+            }
+          }
+        }
+
+        // Fallback: load template data if no valid last opened file found
+        console.log("Loading template data");
+        const data = DATA["home"][getDeviceType()]["msc"];
+        AppGeneral.initializeApp(JSON.stringify(data));
+        updateSelectedFile("default");
+      } catch (error) {
+        console.error("Error during app initialization:", error);
+        // Ultimate fallback: load template data
+        const data = DATA["home"][getDeviceType()]["msc"];
+        AppGeneral.initializeApp(JSON.stringify(data));
+        updateSelectedFile("default");
+      }
+    };
+
+    initializeApplication();
 
     // Check authentication status on app start
     // This will set the login button to logout if token is present
@@ -276,19 +347,24 @@ const Home: React.FC = () => {
       // Show save notification
       setShowSaveNotification(true);
 
+      // Save the last opened filename for restoration on next app start
+      store._saveLastOpenedFile(selectedFile).catch(error => {
+        console.error('Error saving last opened filename:', error);
+      });
+
       if (selectedFile === 'default') {
-        // For default file, save with __latest__ name
+        // For default file, save with "default" name to restore on next app start
         const file = new File(
           new Date().toString(),
           new Date().toString(),
           content,
-          '__latest__',
+          'default',
           billType
         );
 
-        // Save the file with __latest__ name (fire and forget for beforeunload)
+        // Save the file with "default" name (fire and forget for beforeunload)
         store._saveFile(file).then(() => {
-          console.log(`Default file saved as: __latest__`);
+          console.log(`Default file saved as: default`);
           setShowSaveNotification(false);
         }).catch(error => {
           console.error('Error saving default file on app close:', error);
@@ -486,8 +562,12 @@ const Home: React.FC = () => {
           icon={arrowRedo}
           size="large"
           onClick={() => AppGeneral.redo()}
-          className="ion-padding-end"
           slot="end"
+        />
+        <FooterSelector
+          footers={footers}
+          currentBillType={billType}
+          onFooterSelect={handleFooterSelect}
         />
         <Cloud
           store={store}
@@ -541,6 +621,8 @@ const Home: React.FC = () => {
             <IonIcon icon={menu} />
           </IonFabButton>
         </IonFab>
+
+        {/* Footer Selector Component */}
 
         <Menu
           showM={showMenu}

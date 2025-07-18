@@ -46,6 +46,11 @@ const Files: React.FC<{
       if (props.setCurrentFilePassword) {
         props.setCurrentFilePassword(null);
       }
+
+      // Save as last opened file
+      props.store._saveLastOpenedFile(key).catch(error => {
+        console.error('Error saving last opened filename:', error);
+      });
     });
   };
 
@@ -61,6 +66,11 @@ const Files: React.FC<{
       if (props.setCurrentFilePassword) {
         props.setCurrentFilePassword(password);
       }
+
+      // Save as last opened file
+      props.store._saveLastOpenedFile(key).catch(error => {
+        console.error('Error saving last opened filename:', error);
+      });
 
       return true;
     } catch (error) {
@@ -101,6 +111,11 @@ const Files: React.FC<{
     const msc = DATA["home"][AppGeneral.getDeviceType()]["msc"];
     AppGeneral.viewFile("default", JSON.stringify(msc));
     props.updateSelectedFile("default");
+
+    // Save as last opened file
+    props.store._saveLastOpenedFile("default").catch(error => {
+      console.error('Error saving last opened filename:', error);
+    });
   };
 
   const _formatDate = (date) => {

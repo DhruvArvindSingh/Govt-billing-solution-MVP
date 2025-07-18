@@ -151,6 +151,12 @@ const Menu: React.FC<{
       }
 
       props.updateSelectedFile(props.file);
+
+      // Save as last opened file
+      props.store._saveLastOpenedFile(props.file).catch(error => {
+        console.error('Error saving last opened filename:', error);
+      });
+
       setShowAlert2(true);
     } catch (error) {
       setToastMessage("Error saving file. Please try again.");
@@ -178,6 +184,11 @@ const Menu: React.FC<{
 
         await props.store._saveFile(file);
         props.updateSelectedFile(filename);
+
+        // Save as last opened file
+        props.store._saveLastOpenedFile(filename).catch(error => {
+          console.error('Error saving last opened filename:', error);
+        });
 
         // Clear password since this is a new unprotected file
         if (props.setCurrentFilePassword) {
@@ -212,6 +223,11 @@ const Menu: React.FC<{
         // Save as protected file with AES encryption
         await props.store._saveProtectedFile(file, password);
         props.updateSelectedFile(name);
+
+        // Save as last opened file
+        props.store._saveLastOpenedFile(name).catch(error => {
+          console.error('Error saving last opened filename:', error);
+        });
 
         // Store password for future saves
         if (props.setCurrentFilePassword) {
