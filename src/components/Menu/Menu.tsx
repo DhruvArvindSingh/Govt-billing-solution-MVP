@@ -584,7 +584,7 @@ const Menu: React.FC<{
         onDidDismiss={() => setShowAlert1(false)}
         header="Alert Message"
         message={
-          "Cannot update <strong>" + getCurrentFileName() + "</strong> file!"
+          "Cannot update " + getCurrentFileName() + " file!"
         }
         buttons={["Ok"]}
       />
@@ -594,9 +594,9 @@ const Menu: React.FC<{
         onDidDismiss={() => setShowAlert2(false)}
         header="Save"
         message={
-          "File <strong>" +
+          "File " +
           getCurrentFileName() +
-          "</strong> updated successfully"
+          " updated successfully"
         }
         buttons={["Ok"]}
       />
@@ -623,9 +623,9 @@ const Menu: React.FC<{
         onDidDismiss={() => setShowAlert4(false)}
         header="Save As"
         message={
-          "File <strong>" +
+          "File " +
           getCurrentFileName() +
-          "</strong> saved successfully"
+          " saved successfully"
         }
         buttons={["Ok"]}
       />
