@@ -1,7 +1,8 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
+import { API_BASE_URL } from '../../config/environment';
 
-// Configure axios defaults
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888';
+// Configure axios defaults - now using centralized environment config
+console.log('ApiService initialized with API_BASE_URL:', API_BASE_URL);
 
 
 
@@ -474,4 +475,4 @@ class ApiService {
     }
 }
 
-export default ApiService; 
+export default ApiService;

@@ -24,7 +24,6 @@ import Files from "../components/Files/Files";
 import Cloud from "../components/Cloud/Cloud";
 import NewFile from "../components/NewFile/NewFile";
 import Login from "../components/Login/Login";
-import SimpleModal from "../components/Login/SimpleModal";
 import FooterSelector from "../components/FooterSelector/FooterSelector";
 import ApiService from "../components/service/Apiservice";
 import { useApp } from "../contexts/AppContext";
@@ -352,33 +351,31 @@ const Home: React.FC = () => {
         console.error('Error saving last opened filename:', error);
       });
 
-      if (selectedFile === 'default') {
-        // For default file, save with "default" name to restore on next app start
-        const file = new File(
-          new Date().toString(),
-          new Date().toString(),
-          content,
-          'default',
-          billType
-        );
+      const file = new File(
+        new Date().toString(),
+        new Date().toString(),
+        content,
+        '__last_opened_file__',
+        billType
+      );
 
-        // Save the file with "default" name (fire and forget for beforeunload)
-        store._saveFile(file).then(() => {
-          console.log(`Default file saved as: default`);
-          setShowSaveNotification(false);
-        }).catch(error => {
-          console.error('Error saving default file on app close:', error);
-          setShowSaveNotification(false);
-        });
-      } else {
-        // For existing files, save with current name
+      // Save the file with "default" name (fire and forget for beforeunload)
+      store._saveFile(file).then(() => {
+        console.log(`Default file saved as: default`);
+        setShowSaveNotification(false);
+      }).catch(error => {
+        console.error('Error saving default file on app close:', error);
+        setShowSaveNotification(false);
+      });
+      if (selectedFile !== 'default') {
+        // For default file, save with "default" name to restore on next app start
         store._getFile(selectedFile).then(existingData => {
           const file = new File(
             existingData?.created || new Date().toString(),
             new Date().toString(),
             content,
             selectedFile,
-            billType
+            billTypee
           );
 
           // Check if current file is password protected and we have the password
@@ -541,11 +538,9 @@ const Home: React.FC = () => {
           </IonTitle>
           <Login
             slot="end"
-            onLoginClick={() => {
-              setShowLoginModal(true);
-            }}
             isLoggedIn={isLoggedIn}
             loading={authLoading}
+            onLoginSuccess={handleLoginSuccess}
             onLogout={handleLogout}
           />
         </IonToolbar>
@@ -641,13 +636,6 @@ const Home: React.FC = () => {
           <div id="msg"></div>
         </div>
 
-        <SimpleModal
-          isOpen={showLoginModal}
-          onClose={() => {
-            setShowLoginModal(false);
-          }}
-          onLoginSuccess={handleLoginSuccess}
-        />
 
         {/* Save notification */}
         {showSaveNotification && (

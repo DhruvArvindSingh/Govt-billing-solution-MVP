@@ -47,7 +47,6 @@ const Cloud: React.FC<{
     const [selectedCloudFiles, setSelectedCloudFiles] = useState<FileSelection>({});
     const [selectedLocalFiles, setSelectedLocalFiles] = useState<FileSelection>({});
     const [localFiles, setLocalFiles] = useState<{ [key: string]: number }>({});
-    const [showBatchMode, setShowBatchMode] = useState(false);
     const [showMoveAlert, setShowMoveAlert] = useState(false);
     const [moveOperation, setMoveOperation] = useState<'toLocal' | 'toServer' | null>(null);
     const [conflictFiles, setConflictFiles] = useState<string[]>([]);
@@ -705,14 +704,16 @@ const Cloud: React.FC<{
                             Upload Invoice
                         </IonButton>
 
-                        <IonButton
-                            className="batch-mode-button"
-                            fill={showBatchMode ? "solid" : "outline"}
-                            onClick={() => setShowBatchMode(!showBatchMode)}
-                            disabled={loading}
-                        >
-                            {showBatchMode ? 'Exit Batch' : 'Batch Mode'}
-                        </IonButton>
+                        {hasSelectedCloudFiles() && (
+                            <IonButton
+                                className="download-all-button"
+                                color="secondary"
+                                onClick={moveToLocal}
+                                disabled={loading}
+                            >
+                                Download All ({getSelectedCloudFiles().length})
+                            </IonButton>
+                        )}
 
                         <div className="search-container">
                             <input
@@ -733,107 +734,8 @@ const Cloud: React.FC<{
                         </div>
                     </div>
 
-                    {/* Batch Operations Panel */}
-                    {showBatchMode && (
-                        <div className="batch-operations-panel">
-                            <div className="batch-section">
-                                <div className="batch-header">
-                                    <h4>Local Files ({Object.keys(localFiles).filter(key => key !== 'default').length})</h4>
-                                    <div className="batch-controls">
-                                        <IonButton
-                                            size="small"
-                                            fill="clear"
-                                            onClick={() => selectAllLocalFiles(true)}
-                                            disabled={loading}
-                                        >
-                                            Select All
-                                        </IonButton>
-                                        <IonButton
-                                            size="small"
-                                            fill="clear"
-                                            onClick={() => selectAllLocalFiles(false)}
-                                            disabled={loading}
-                                        >
-                                            Clear All
-                                        </IonButton>
-                                        <IonButton
-                                            size="small"
-                                            color="primary"
-                                            onClick={moveToServer}
-                                            disabled={!hasSelectedLocalFiles() || loading}
-                                        >
-                                            Upload to {activeTab.toUpperCase()} ({getSelectedLocalFiles().length})
-                                        </IonButton>
-                                    </div>
-                                </div>
-                                <div className="local-files-list">
-                                    {Object.keys(localFiles)
-                                        .filter(key => key !== 'default' && key.toLowerCase().includes(searchTerm.toLowerCase()))
-                                        .map(key => (
-                                            <div key={key} className="batch-file-item">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedLocalFiles[key] || false}
-                                                    onChange={() => toggleLocalFileSelection(key)}
-                                                    disabled={loading}
-                                                />
-                                                <span className="file-name">{key}</span>
-                                                <span className="file-date">{_formatDate(localFiles[key])}</span>
-                                            </div>
-                                        ))}
-                                </div>
-                            </div>
-
-                            <div className="batch-section">
-                                <div className="batch-header">
-                                    <h4>{activeTab.toUpperCase()} Files ({filteredFiles.length})</h4>
-                                    <div className="batch-controls">
-                                        <IonButton
-                                            size="small"
-                                            fill="clear"
-                                            onClick={() => selectAllCloudFiles(true)}
-                                            disabled={loading}
-                                        >
-                                            Select All
-                                        </IonButton>
-                                        <IonButton
-                                            size="small"
-                                            fill="clear"
-                                            onClick={() => selectAllCloudFiles(false)}
-                                            disabled={loading}
-                                        >
-                                            Clear All
-                                        </IonButton>
-                                        <IonButton
-                                            size="small"
-                                            color="secondary"
-                                            onClick={moveToLocal}
-                                            disabled={!hasSelectedCloudFiles() || loading}
-                                        >
-                                            Download to Local ({getSelectedCloudFiles().length})
-                                        </IonButton>
-                                    </div>
-                                </div>
-                                <div className="cloud-files-list">
-                                    {filteredFiles.map(key => (
-                                        <div key={key} className="batch-file-item">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedCloudFiles[key] || false}
-                                                onChange={() => toggleCloudFileSelection(key)}
-                                                disabled={loading}
-                                            />
-                                            <span className="file-name">{key}</span>
-                                            <span className="file-date">{_formatDate(files[key])}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* File List - Hide in batch mode */}
-                    {!showBatchMode && (
+                    {/* File List */}
+                    {(
                         <div className="file-list-container">
                             {loading && (
                                 <div className="loading-message">
@@ -857,6 +759,13 @@ const Cloud: React.FC<{
                                 <IonList className="file-list">
                                     {filteredFiles.map((key) => (
                                         <IonItem key={key} className="file-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedCloudFiles[key] || false}
+                                                onChange={() => toggleCloudFileSelection(key)}
+                                                disabled={loading}
+                                                className="file-checkbox"
+                                            />
                                             <div className="file-info">
                                                 <div className="file-name">{key}</div>
                                                 <div className="file-date">
@@ -885,24 +794,6 @@ const Cloud: React.FC<{
                         </div>
                     )}
 
-                    <div style={{
-                        position: 'fixed',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: '16px',
-                        backgroundColor: 'white',
-                        borderTop: '1px solid #e0e0e0',
-                        zIndex: 1000
-                    }}>
-                        <IonButton
-                            expand="block"
-                            color="secondary"
-                            onClick={() => setShowModal(false)}
-                        >
-                            Back
-                        </IonButton>
-                    </div>
                 </IonContent>
             </IonModal>
         );
