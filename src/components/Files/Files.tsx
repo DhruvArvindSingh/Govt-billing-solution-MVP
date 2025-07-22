@@ -17,9 +17,14 @@ import {
   IonToolbar,
   IonTitle,
   IonContent,
+  IonCheckbox,
+  IonRow,
+  IonCol,
+  IonGrid,
 } from "@ionic/react";
-import { fileTrayFull, trash, create, shield } from "ionicons/icons";
+import { fileTrayFull, trash, create, shield, cloudUpload } from "ionicons/icons";
 import PasswordModal from "../PasswordModal/PasswordModal";
+import ApiService from "../service/Apiservice";
 
 const Files: React.FC<{
   store: Local;
@@ -27,6 +32,7 @@ const Files: React.FC<{
   updateSelectedFile: Function;
   updateBillType: Function;
   setCurrentFilePassword?: Function;
+  isLoggedIn?: boolean;
 }> = (props) => {
   const [modal, setModal] = useState(null);
   const [listFiles, setListFiles] = useState(false);
@@ -36,6 +42,10 @@ const Files: React.FC<{
   const [protectedFileName, setProtectedFileName] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<{ [key: string]: boolean }>({});
+  const [uploading, setUploading] = useState(false);
+  const [uploadAlert, setUploadAlert] = useState(false);
+  const [uploadAlertMessage, setUploadAlertMessage] = useState("");
 
   const editFile = (key) => {
     props.store._getFile(key).then((data) => {
@@ -85,7 +95,10 @@ const Files: React.FC<{
       // First check if it's a protected file
       const fileData = await props.store._getFile(key);
 
-      if (props.store.isProtectedFile(fileData.content)) {
+      // Check both new format (isPasswordProtected field) and old format (Protected_ prefix)
+      const isProtected = fileData.isPasswordProtected === true || props.store.isProtectedFile(fileData.content);
+
+      if (isProtected) {
         // It's a protected file, show password modal
         setProtectedFileName(key);
         setShowPasswordModal(true);
@@ -125,9 +138,143 @@ const Files: React.FC<{
   const isProtectedFile = async (key: string): Promise<boolean> => {
     try {
       const fileData = await props.store._getFile(key);
-      return props.store.isProtectedFile(fileData.content);
+      // Check both new format (isPasswordProtected field) and old format (Protected_ prefix)
+      return fileData.isPasswordProtected === true || props.store.isProtectedFile(fileData.content);
     } catch (error) {
       return false;
+    }
+  };
+
+  // Checkbox helper functions
+  const toggleFileSelection = (key: string) => {
+    setSelectedFiles(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const getSelectedFiles = () => {
+    return Object.keys(selectedFiles).filter(key => selectedFiles[key]);
+  };
+
+  const hasSelectedFiles = () => {
+    return getSelectedFiles().length > 0;
+  };
+
+  const clearSelectedFiles = () => {
+    setSelectedFiles({});
+  };
+
+  // Upload functions
+  const handleUploadS3 = async () => {
+    if (!props.isLoggedIn) {
+      setUploadAlertMessage("Please login first to upload files to S3.");
+      setUploadAlert(true);
+      return;
+    }
+
+    const selectedFileKeys = getSelectedFiles();
+    if (selectedFileKeys.length === 0) {
+      setUploadAlertMessage("No files selected for upload.");
+      setUploadAlert(true);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const fileName of selectedFileKeys) {
+        try {
+          const fileData = await props.store._getFile(fileName);
+          console.log("fileData", fileData);
+          const content = decodeURIComponent(fileData.content);
+          console.log("content", content);
+
+          await ApiService.uploadFileS3(fileName, content);
+          successCount++;
+        } catch (error) {
+          console.error(`Error uploading ${fileName} to S3:`, error);
+          errorCount++;
+        }
+      }
+
+      // Clear selections and close modal
+      clearSelectedFiles();
+      setListFiles(false);
+
+      // Show result message
+      if (successCount > 0 && errorCount === 0) {
+        setUploadAlertMessage(`Successfully uploaded ${successCount} file(s) to S3`);
+      } else if (successCount > 0 && errorCount > 0) {
+        setUploadAlertMessage(`Uploaded ${successCount} file(s), ${errorCount} failed`);
+      } else {
+        setUploadAlertMessage(`Failed to upload files to S3`);
+      }
+      setUploadAlert(true);
+
+    } catch (error) {
+      console.error('Batch upload to S3 error:', error);
+      setUploadAlertMessage('Error during batch upload to S3');
+      setUploadAlert(true);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploadDropbox = async () => {
+    if (!props.isLoggedIn) {
+      setUploadAlertMessage("Please login first to upload files to Dropbox.");
+      setUploadAlert(true);
+      return;
+    }
+
+    const selectedFileKeys = getSelectedFiles();
+    if (selectedFileKeys.length === 0) {
+      setUploadAlertMessage("No files selected for upload.");
+      setUploadAlert(true);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const fileName of selectedFileKeys) {
+        try {
+          const fileData = await props.store._getFile(fileName);
+          const content = decodeURIComponent(fileData.content);
+
+          await ApiService.uploadFileDropbox(fileName, content);
+          successCount++;
+        } catch (error) {
+          console.error(`Error uploading ${fileName} to Dropbox:`, error);
+          errorCount++;
+        }
+      }
+
+      // Clear selections and close modal
+      clearSelectedFiles();
+      setListFiles(false);
+
+      // Show result message
+      if (successCount > 0 && errorCount === 0) {
+        setUploadAlertMessage(`Successfully uploaded ${successCount} file(s) to Dropbox`);
+      } else if (successCount > 0 && errorCount > 0) {
+        setUploadAlertMessage(`Uploaded ${successCount} file(s), ${errorCount} failed`);
+      } else {
+        setUploadAlertMessage(`Failed to upload files to Dropbox`);
+      }
+      setUploadAlert(true);
+
+    } catch (error) {
+      console.error('Batch upload to Dropbox error:', error);
+      setUploadAlertMessage('Error during batch upload to Dropbox');
+      setUploadAlert(true);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -143,9 +290,38 @@ const Files: React.FC<{
       const isProtected = await isProtectedFile(key);
 
       return (
-        <IonItemGroup key={key}>
-          <IonItem>
-            <IonLabel>
+        <div key={key} style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px 16px',
+          borderBottom: '1px solid #e0e0e0',
+          backgroundColor: 'white',
+          minHeight: '60px'
+        }}>
+          {/* Checkbox - isolated click area */}
+          <div style={{ marginRight: '16px', flexShrink: 0 }}>
+            <IonCheckbox
+              checked={selectedFiles[key] || false}
+              onIonChange={() => toggleFileSelection(key)}
+            />
+          </div>
+
+          {/* File info - clickable to open file */}
+          <div
+            style={{
+              flex: 1,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0 // Allow text truncation
+            }}
+            onClick={() => handleFileClick(key)}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px'
+            }}>
               {isProtected && (
                 <IonIcon
                   icon={shield}
@@ -153,37 +329,73 @@ const Files: React.FC<{
                   style={{ marginRight: '8px', fontSize: '16px' }}
                 />
               )}
-              {key}
-            </IonLabel>
-            {_formatDate(files[key])}
+              <span style={{
+                fontWeight: '500',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {key}
+              </span>
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: '#666',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {_formatDate(files[key])}
+            </div>
+          </div>
 
-            <IonIcon
-              icon={create}
-              color="warning"
-              slot="end"
-              size="large"
-              onClick={() => handleFileClick(key)}
-            />
+          {/* Action buttons - isolated click areas */}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            marginLeft: '16px',
+            flexShrink: 0
+          }}>
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFileClick(key);
+              }}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <IonIcon
+                icon={create}
+                color="warning"
+                size="large"
+              />
+            </div>
 
-            <IonIcon
-              icon={trash}
-              color="danger"
-              slot="end"
-              size="large"
-              onClick={() => {
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
                 setListFiles(false);
                 deleteFile(key);
               }}
-            />
-          </IonItem>
-        </IonItemGroup>
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <IonIcon
+                icon={trash}
+                color="danger"
+                size="large"
+              />
+            </div>
+          </div>
+        </div>
       );
     });
 
     const fileList = await Promise.all(fileListPromises);
 
     const ourModal = (
-      <IonModal isOpen={listFiles} onDidDismiss={() => setListFiles(false)}>
+      <IonModal isOpen={listFiles} onDidDismiss={() => {
+        setListFiles(false);
+        clearSelectedFiles(); // Clear selections when modal closes
+      }}>
         <IonHeader>
           <IonToolbar>
             <IonTitle>Files ({filteredFileKeys.length})</IonTitle>
@@ -197,17 +409,53 @@ const Files: React.FC<{
             showClearButton="focus"
             debounce={300}
           />
-          <IonList style={{ paddingBottom: '80px' }}>
+          {hasSelectedFiles() && (
+            <div style={{ padding: '16px', backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+              <IonGrid>
+                <IonRow>
+                  <IonCol size="6">
+                    <IonButton
+                      expand="block"
+                      color="primary"
+                      onClick={handleUploadS3}
+                      disabled={uploading}
+                    >
+                      <IonIcon icon={cloudUpload} slot="start" />
+                      Upload S3
+                    </IonButton>
+                  </IonCol>
+                  <IonCol size="6">
+                    <IonButton
+                      expand="block"
+                      color="secondary"
+                      onClick={handleUploadDropbox}
+                      disabled={uploading}
+                    >
+                      <IonIcon icon={cloudUpload} slot="start" />
+                      Upload Dropbox
+                    </IonButton>
+                  </IonCol>
+                </IonRow>
+              </IonGrid>
+              <div style={{ textAlign: 'center', fontSize: '12px', color: '#666', marginTop: '8px' }}>
+                {getSelectedFiles().length} file(s) selected
+              </div>
+            </div>
+          )}
+          <div style={{ paddingBottom: '80px' }}>
             {fileList.length > 0 ? (
               fileList
             ) : (
-              <IonItem>
-                <IonLabel>
-                  {searchText ? `No files found matching "${searchText}"` : "No files available"}
-                </IonLabel>
-              </IonItem>
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: '#666',
+                fontSize: '14px'
+              }}>
+                {searchText ? `No files found matching "${searchText}"` : "No files available"}
+              </div>
             )}
-          </IonList>
+          </div>
         </IonContent>
         <div style={{
           position: 'fixed',
@@ -225,6 +473,7 @@ const Files: React.FC<{
             onClick={() => {
               setListFiles(false);
               setSearchText(""); // Clear search when closing
+              clearSelectedFiles(); // Clear selections when closing
             }}
           >
             Back
@@ -237,7 +486,7 @@ const Files: React.FC<{
 
   useEffect(() => {
     temp();
-  }, [listFiles, searchText]);
+  }, [listFiles, searchText, selectedFiles]);
 
   return (
     <React.Fragment>
@@ -287,6 +536,14 @@ const Files: React.FC<{
         submitText="Open File"
         showNameField={false}
         passwordError={passwordError}
+      />
+      <IonAlert
+        animated
+        isOpen={uploadAlert}
+        onDidDismiss={() => setUploadAlert(false)}
+        header="Upload Status"
+        message={uploadAlertMessage}
+        buttons={["OK"]}
       />
     </React.Fragment>
   );

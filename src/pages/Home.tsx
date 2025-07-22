@@ -112,69 +112,84 @@ const Home: React.FC = () => {
   };
 
   useEffect(() => {
+    const waitForDOM = () => {
+      return new Promise<void>((resolve) => {
+        const checkDOM = () => {
+          const container = document.getElementById('container');
+          const tableeditor = document.getElementById('tableeditor');
+          const workbookControl = document.getElementById('workbookControl');
+
+          if (container && tableeditor && workbookControl) {
+            resolve();
+          } else {
+            setTimeout(checkDOM, 100);
+          }
+        };
+        checkDOM();
+      });
+    };
+
     const initializeApplication = async () => {
       try {
-        // Get the last opened filename
-        const lastOpenedFile = await store._getLastOpenedFile();
-        console.log("Last opened file:", lastOpenedFile);
+        // Wait for DOM elements to be ready
+        await waitForDOM();
 
-        if (lastOpenedFile) {
-          if (lastOpenedFile === 'default') {
-            // Check if there's a saved "default" file from a previous session
-            try {
-              const defaultFile = await store._getFile("default");
-              if (defaultFile && defaultFile.content) {
-                // Load the saved default file
-                console.log("Loading saved default file from previous session");
-                AppGeneral.viewFile("default", decodeURIComponent(defaultFile.content));
-                updateSelectedFile("default");
-                updateBillType(defaultFile.billType || 1);
+        // Add a small delay to ensure everything is properly rendered
+        await new Promise(resolve => setTimeout(resolve, 200));
 
-                // Delete the default file after loading it
-                await store._deleteFile("default");
-                console.log("Default file loaded and deleted");
-                return;
-              }
-            } catch (error) {
-              console.log("No saved default file found");
+        // Check if there's a "___default___" file in localStorage
+        console.log("Checking for '___default___' file in localStorage...");
+
+        // First check if the key exists
+        const defaultFileExists = await store._checkKey("___default___");
+        console.log("___default___ file exists in storage:", defaultFileExists);
+
+        if (defaultFileExists) {
+          try {
+            const defaultFile = await store._getFile("___default___");
+            console.log("Retrieved ___default___ file:", defaultFile ? "Found" : "Not found");
+
+            if (defaultFile && defaultFile.content) {
+              console.log("Loading saved ___default___ file from localStorage");
+              console.log("___default___ file content length:", defaultFile.content.length);
+              console.log("___default___ file billType:", defaultFile.billType);
+
+              // Load the saved default file
+              AppGeneral.viewFile("default", decodeURIComponent(defaultFile.content));
+              updateSelectedFile("default");
+              updateBillType(defaultFile.billType || 1);
+
+              // Delete the ___default___ file after loading it
+              await store._deleteFile("___default___");
+              console.log("___default___ file loaded and deleted from localStorage");
+              return;
+            } else {
+              console.log("___default___ file exists but has no content");
             }
-          } else {
-            // Try to load the last opened named file
-            try {
-              const lastFile = await store._getFile(lastOpenedFile);
-              if (lastFile && lastFile.content) {
-                console.log(`Loading last opened file: ${lastOpenedFile}`);
-
-                // Check if it's a protected file
-                if (store.isProtectedFile(lastFile.content)) {
-                  console.log("Last opened file is protected, loading template instead");
-                  // For protected files, we can't auto-load without password
-                  // So we load template and let user manually open the protected file
-                } else {
-                  AppGeneral.viewFile(lastOpenedFile, decodeURIComponent(lastFile.content));
-                  updateSelectedFile(lastOpenedFile);
-                  updateBillType(lastFile.billType || 1);
-                  console.log(`Last opened file ${lastOpenedFile} restored successfully`);
-                  return;
-                }
-              }
-            } catch (error) {
-              console.log(`Last opened file ${lastOpenedFile} not found in storage`);
-            }
+          } catch (error) {
+            console.error("Error loading ___default___ file:", error);
           }
+        } else {
+          console.log("No '___default___' file key found in localStorage");
         }
 
-        // Fallback: load template data if no valid last opened file found
-        console.log("Loading template data");
+        // If no default file exists, load template data from app-data
+        console.log("Loading template data from app-data");
         const data = DATA["home"][getDeviceType()]["msc"];
         AppGeneral.initializeApp(JSON.stringify(data));
         updateSelectedFile("default");
       } catch (error) {
         console.error("Error during app initialization:", error);
-        // Ultimate fallback: load template data
-        const data = DATA["home"][getDeviceType()]["msc"];
-        AppGeneral.initializeApp(JSON.stringify(data));
-        updateSelectedFile("default");
+        // Ultimate fallback: load template data with DOM check
+        try {
+          await waitForDOM();
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const data = DATA["home"][getDeviceType()]["msc"];
+          AppGeneral.initializeApp(JSON.stringify(data));
+          updateSelectedFile("default");
+        } catch (fallbackError) {
+          console.error("Fallback initialization also failed:", fallbackError);
+        }
       }
     };
 
@@ -351,45 +366,44 @@ const Home: React.FC = () => {
         console.error('Error saving last opened filename:', error);
       });
 
-      const file = new File(
+      // Always save the current file with "___default___" name for restoration on next app start
+      const defaultFile = new File(
         new Date().toString(),
         new Date().toString(),
         content,
-        '__last_opened_file__',
-        billType
+        '___default___',
+        billType,
+        false // Not password protected for the default save
       );
 
-      // Save the file with "default" name (fire and forget for beforeunload)
-      store._saveFile(file).then(() => {
-        console.log(`Default file saved as: default`);
+      // Save the file with "___default___" name (fire and forget for beforeunload)
+      store._saveFile(defaultFile).then(() => {
+        console.log(`Current file saved as: ___default___`);
         setShowSaveNotification(false);
       }).catch(error => {
-        console.error('Error saving default file on app close:', error);
+        console.error('Error saving ___default___ file on app close:', error);
         setShowSaveNotification(false);
       });
+
+      // Also save the file with its original name if it's not "default"
       if (selectedFile !== 'default') {
-        // For default file, save with "default" name to restore on next app start
         store._getFile(selectedFile).then(existingData => {
           const file = new File(
             existingData?.created || new Date().toString(),
             new Date().toString(),
             content,
             selectedFile,
-            billTypee
+            billType,
+            existingData?.isPasswordProtected || false,
+            currentFilePassword || existingData?.password
           );
 
-          // Check if current file is password protected and we have the password
-          if (currentFilePassword && store.isProtectedFile(existingData.content)) {
-            return store._saveProtectedFile(file, currentFilePassword);
-          } else {
-            return store._saveFile(file);
-          }
+          // Save using the unified method
+          return store._saveFile(file);
         }).then(() => {
-          console.log(`File saved: ${selectedFile}`);
-          setShowSaveNotification(false);
+          console.log(`File also saved with original name: ${selectedFile}`);
         }).catch(error => {
-          console.error('Error saving file on app close:', error);
-          setShowSaveNotification(false);
+          console.error('Error saving file with original name on app close:', error);
         });
       }
     } catch (error) {
@@ -432,23 +446,19 @@ const Home: React.FC = () => {
         existingData = null;
       }
 
-      // Create file object
+      // Create file object with unified schema
       const file = new File(
         existingData?.created || new Date().toString(),
         new Date().toString(), // Updated modified time
         content,
         selectedFile,
-        billType
+        billType,
+        existingData?.isPasswordProtected || (currentFilePassword ? true : false),
+        currentFilePassword || existingData?.password
       );
 
-      // Check if current file is password protected and we have the password
-      if (currentFilePassword && existingData && store.isProtectedFile(existingData.content)) {
-        // Save as protected file with the same password
-        await store._saveProtectedFile(file, currentFilePassword);
-      } else {
-        // Save as regular file
-        await store._saveFile(file);
-      }
+      // Save using the unified method
+      await store._saveFile(file);
 
       setAutoSaveStatus('saved');
       retryCountRef.current = 0; // Reset retry count on successful save
@@ -576,6 +586,7 @@ const Home: React.FC = () => {
           updateSelectedFile={updateSelectedFile}
           updateBillType={updateBillType}
           setCurrentFilePassword={setCurrentFilePassword}
+          isLoggedIn={isLoggedIn}
         />
 
         <NewFile

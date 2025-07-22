@@ -7,19 +7,25 @@ export class File {
   name: string;
   content: string;
   billType: number;
+  isPasswordProtected: boolean;
+  password?: string;
 
   constructor(
     created: string,
     modified: string,
     content: string,
     name: string,
-    billType: number
+    billType: number,
+    isPasswordProtected: boolean = false,
+    password?: string
   ) {
     this.created = created;
     this.modified = modified;
     this.content = content;
     this.name = name;
     this.billType = billType;
+    this.isPasswordProtected = isPasswordProtected;
+    this.password = password;
   }
 }
 
@@ -28,7 +34,7 @@ export class Local {
   private _encryptContent = (content: string, password: string): string => {
     try {
       const encrypted = CryptoJS.AES.encrypt(content, password).toString();
-      return `Protected_${encrypted}`;
+      return encrypted; // Return only the encrypted content without prefix
     } catch (error) {
       console.error("Encryption error:", error);
       throw new Error("Failed to encrypt file content");
@@ -38,8 +44,13 @@ export class Local {
   // Decrypt content using AES
   private _decryptContent = (encryptedContent: string, password: string): string => {
     try {
-      // Remove "Protected_" prefix
-      const actualEncryptedContent = encryptedContent.substring(10);
+      // Handle both old format (with "Protected_" prefix) and new format (direct encrypted content)
+      let actualEncryptedContent = encryptedContent;
+      if (encryptedContent.startsWith('Protected_')) {
+        // Old format - remove "Protected_" prefix
+        actualEncryptedContent = encryptedContent.substring(10);
+      }
+
       const decrypted = CryptoJS.AES.decrypt(actualEncryptedContent, password);
       const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
 
@@ -63,66 +74,104 @@ export class Local {
   public isFileProtected = async (fileName: string): Promise<boolean> => {
     try {
       const fileData = await this._getFile(fileName);
-      return this.isProtectedFile(fileData.content);
+      // Check new format first, then fall back to old format
+      return fileData.isPasswordProtected === true || this.isProtectedFile(fileData.content);
     } catch (error) {
       return false;
     }
   };
 
-  // Save protected file with encryption
-  _saveProtectedFile = async (file: File, password: string) => {
+  // Unified save method for both protected and regular files
+  _saveFile = async (file: File) => {
     try {
-      const encryptedContent = this._encryptContent(file.content, password);
+      let content = file.content;
+
+      // If file is password protected, encrypt the content
+      if (file.isPasswordProtected && file.password) {
+        content = this._encryptContent(file.content, file.password);
+      }
+
       let data = {
         created: file.created,
         modified: file.modified,
-        content: encryptedContent,
+        content: content,
         name: file.name,
         billType: file.billType,
+        isPasswordProtected: file.isPasswordProtected,
+        password: file.password || null
       };
+
       await Preferences.set({
         key: file.name,
         value: JSON.stringify(data),
       });
     } catch (error) {
-      console.error("Error saving protected file:", error);
+      console.error("Error saving file:", error);
       throw error;
     }
   };
 
-  // Get protected file with decryption
-  _getProtectedFile = async (name: string, password: string) => {
+  // Legacy method for backward compatibility - now redirects to unified _saveFile
+  _saveProtectedFile = async (file: File, password: string) => {
+    const protectedFile = new File(
+      file.created,
+      file.modified,
+      file.content,
+      file.name,
+      file.billType,
+      true,
+      password
+    );
+    return this._saveFile(protectedFile);
+  };
+
+  // Get file with automatic decryption if password protected
+  _getFileWithPassword = async (name: string, password?: string) => {
     try {
       const rawData = await Preferences.get({ key: name });
       const fileData = JSON.parse(rawData.value);
 
-      if (this.isProtectedFile(fileData.content)) {
-        const decryptedContent = this._decryptContent(fileData.content, password);
+      // Handle backward compatibility - check for old "Protected_" format
+      const isOldProtectedFormat = this.isProtectedFile(fileData.content);
+      const isNewProtectedFormat = fileData.isPasswordProtected === true;
+
+      if (isOldProtectedFormat || isNewProtectedFormat) {
+        if (!password) {
+          throw new Error("Password required for protected file");
+        }
+
+        let decryptedContent;
+        if (isOldProtectedFormat) {
+          // Handle old format
+          decryptedContent = this._decryptContent(fileData.content, password);
+        } else {
+          // Handle new format
+          decryptedContent = this._decryptContent(fileData.content, password);
+        }
+
         return {
           ...fileData,
-          content: decryptedContent
+          content: decryptedContent,
+          isPasswordProtected: true,
+          password: password
         };
       } else {
-        throw new Error("File is not password protected");
+        // Regular unprotected file
+        return {
+          ...fileData,
+          isPasswordProtected: fileData.isPasswordProtected || false,
+          password: fileData.password || null
+        };
       }
     } catch (error) {
-      console.error("Error getting protected file:", error);
+      console.error("Error getting file:", error);
       throw error;
     }
   };
 
-  _saveFile = async (file: File) => {
-    let data = {
-      created: file.created,
-      modified: file.modified,
-      content: file.content,
-      name: file.name,
-      billType: file.billType,
-    };
-    await Preferences.set({
-      key: file.name,
-      value: JSON.stringify(data),
-    });
+  // Legacy method for backward compatibility
+  _getProtectedFile = async (name: string, password: string) => {
+    return this._getFileWithPassword(name, password);
   };
 
   _getFile = async (name: string) => {
