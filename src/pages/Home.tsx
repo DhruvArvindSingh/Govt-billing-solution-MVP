@@ -350,7 +350,7 @@ const Home: React.FC = () => {
   // Handle app close - save current file if needed
   const handleAppClose = () => {
     try {
-      // Get current spreadsheet content
+      // Get current spreadsheet content (decrypted/plain text)
       const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
 
       // Check if we have content to save
@@ -366,19 +366,21 @@ const Home: React.FC = () => {
         console.error('Error saving last opened filename:', error);
       });
 
-      // Always save the current file with "___default___" name for restoration on next app start
+      // ALWAYS save DECRYPTED content as "___default___" for easy recovery (no password protection)
+      // This ensures the user can always recover their work even if they forget the password
       const defaultFile = new File(
         new Date().toString(),
         new Date().toString(),
         content,
         '___default___',
         billType,
-        false // Not password protected for the default save
+        false, // Never password protected - for crash recovery
+        null   // No password for default file
       );
 
       // Save the file with "___default___" name (fire and forget for beforeunload)
       store._saveFile(defaultFile).then(() => {
-        console.log(`Current file saved as: ___default___`);
+        console.log(`Current file saved as ___default___ (decrypted for recovery)`);
         setShowSaveNotification(false);
       }).catch(error => {
         console.error('Error saving ___default___ file on app close:', error);
@@ -388,20 +390,26 @@ const Home: React.FC = () => {
       // Also save the file with its original name if it's not "default"
       if (selectedFile !== 'default') {
         store._getFile(selectedFile).then(existingData => {
+          // Check if the current file is password protected
+          const isCurrentFileProtected = existingData?.isPasswordProtected === true ||
+            (existingData && store.isProtectedFile(existingData.content));
+
+          // If file is password protected, save ENCRYPTED content with original filename
+          // If file is not protected, save as regular file
           const file = new File(
             existingData?.created || new Date().toString(),
             new Date().toString(),
-            content,
+            content, // This will be encrypted automatically if password protected
             selectedFile,
             billType,
-            existingData?.isPasswordProtected || false,
-            currentFilePassword || existingData?.password
+            isCurrentFileProtected, // Maintain password protection status
+            currentFilePassword || existingData?.password // Use session password or stored password
           );
 
-          // Save using the unified method
+          // Save using the unified method (handles AES encryption automatically for protected files)
           return store._saveFile(file);
         }).then(() => {
-          console.log(`File also saved with original name: ${selectedFile}`);
+          console.log(`File also saved with original name: ${selectedFile} (encrypted if password protected)`);
         }).catch(error => {
           console.error('Error saving file with original name on app close:', error);
         });

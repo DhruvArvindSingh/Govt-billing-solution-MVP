@@ -19,20 +19,23 @@ const NewFile: React.FC<{
       try {
         const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
         const data = await props.store._getFile(props.file);
+
+        // Check if current file is password protected
+        const isCurrentFileProtected = (data as any).isPasswordProtected === true ||
+          props.store.isProtectedFile((data as any).content);
+
         const file = new File(
           (data as any).created,
           new Date().toString(),
           content,
           props.file,
-          props.billType
+          props.billType,
+          isCurrentFileProtected, // Pass the protection status
+          props.currentFilePassword || (data as any).password // Use current password or stored password
         );
 
-        // Check if current file is protected and save accordingly
-        if (props.currentFilePassword && props.store.isProtectedFile((data as any).content)) {
-          await props.store._saveProtectedFile(file, props.currentFilePassword);
-        } else {
-          await props.store._saveFile(file);
-        }
+        // Save using the unified method (handles encryption automatically)
+        await props.store._saveFile(file);
 
         props.updateSelectedFile(props.file);
       } catch (error) {

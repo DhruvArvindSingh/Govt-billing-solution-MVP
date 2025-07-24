@@ -133,22 +133,22 @@ const Menu: React.FC<{
         return;
       }
 
+      // Check if current file is password protected
+      const isCurrentFileProtected = (data as any).isPasswordProtected === true ||
+        props.store.isProtectedFile((data as any).content);
+
       const file = new File(
         (data as any).created,
         new Date().toString(),
         content,
         props.file,
-        props.bT
+        props.bT,
+        isCurrentFileProtected, // Pass the protection status
+        props.currentFilePassword || (data as any).password // Use current password or stored password
       );
 
-      // Check if current file is password protected and we have the password
-      if (props.currentFilePassword && props.store.isProtectedFile((data as any).content)) {
-        // Save as protected file with the same password
-        await props.store._saveProtectedFile(file, props.currentFilePassword);
-      } else {
-        // Save as regular file
-        await props.store._saveFile(file);
-      }
+      // Save using the unified method (handles encryption automatically)
+      await props.store._saveFile(file);
 
       props.updateSelectedFile(props.file);
 
