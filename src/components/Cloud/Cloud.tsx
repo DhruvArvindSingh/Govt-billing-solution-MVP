@@ -214,11 +214,6 @@ const Cloud: React.FC<{
                 AppGeneral.viewFile(key, fileData.content);
                 props.updateSelectedFile(key);
 
-                // Save as last opened file
-                props.store._saveLastOpenedFile(key).catch(error => {
-                    console.error('Error saving last opened filename:', error);
-                });
-
                 setShowModal(false);
             } else {
                 setToastMessage('Failed to load file');

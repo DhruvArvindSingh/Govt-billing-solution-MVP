@@ -137,41 +137,6 @@ const Home: React.FC = () => {
         // Add a small delay to ensure everything is properly rendered
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        // Check if there's a "___default___" file in localStorage
-        console.log("Checking for '___default___' file in localStorage...");
-
-        // First check if the key exists
-        const defaultFileExists = await store._checkKey("___default___");
-        console.log("___default___ file exists in storage:", defaultFileExists);
-
-        if (defaultFileExists) {
-          try {
-            const defaultFile = await store._getFile("___default___");
-            console.log("Retrieved ___default___ file:", defaultFile ? "Found" : "Not found");
-
-            if (defaultFile && defaultFile.content) {
-              console.log("Loading saved ___default___ file from localStorage");
-              console.log("___default___ file content length:", defaultFile.content.length);
-              console.log("___default___ file billType:", defaultFile.billType);
-
-              // Load the saved default file
-              AppGeneral.viewFile("default", decodeURIComponent(defaultFile.content));
-              updateSelectedFile("default");
-              updateBillType(defaultFile.billType || 1);
-
-              // Delete the ___default___ file after loading it
-              await store._deleteFile("___default___");
-              console.log("___default___ file loaded and deleted from localStorage");
-              return;
-            } else {
-              console.log("___default___ file exists but has no content");
-            }
-          } catch (error) {
-            console.error("Error loading ___default___ file:", error);
-          }
-        } else {
-          console.log("No '___default___' file key found in localStorage");
-        }
 
         // If no default file exists, load template data from app-data
         console.log("Loading template data from app-data");
@@ -361,10 +326,6 @@ const Home: React.FC = () => {
       // Show save notification
       setShowSaveNotification(true);
 
-      // Save the last opened filename for restoration on next app start
-      store._saveLastOpenedFile(selectedFile).catch(error => {
-        console.error('Error saving last opened filename:', error);
-      });
 
       // ALWAYS save DECRYPTED content as "___default___" for easy recovery (no password protection)
       // This ensures the user can always recover their work even if they forget the password
@@ -372,7 +333,7 @@ const Home: React.FC = () => {
         new Date().toString(),
         new Date().toString(),
         content,
-        '___default___',
+        '___last_opened___',
         billType,
         false, // Never password protected - for crash recovery
         null   // No password for default file

@@ -208,13 +208,7 @@ export class Local {
     await Preferences.remove({ key: name });
   };
 
-  // Save the last opened filename
-  _saveLastOpenedFile = async (filename: string) => {
-    await Preferences.set({
-      key: '__last_opened_file__',
-      value: filename,
-    });
-  };
+
 
   // Get the last opened filename
   _getLastOpenedFile = async (): Promise<string | null> => {
