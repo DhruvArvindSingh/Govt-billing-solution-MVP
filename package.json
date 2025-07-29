@@ -45,10 +45,12 @@
     "html2canvas": "^1.4.1",
     "ionicons": "^7.0.0",
     "jspdf": "^3.0.1",
+    "pm2": "^6.0.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router": "^5.3.4",
     "react-router-dom": "^5.3.4",
+    "rxjs": "^6.6.7",
     "vite-plugin-commonjs": "^0.10.1"
   },
   "devDependencies": {

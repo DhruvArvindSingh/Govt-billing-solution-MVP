@@ -48,10 +48,10 @@ const Files: React.FC<{
   const [uploadAlertMessage, setUploadAlertMessage] = useState("");
 
   const editFile = (key) => {
-    props.store._getFile(key).then((data) => {
-      AppGeneral.viewFile(key, decodeURIComponent((data as any).content));
+    props.store._getFile(key).then((data: any) => {
+      AppGeneral.viewFile(key, data.content);
       props.updateSelectedFile(key);
-      props.updateBillType((data as any).billType);
+      props.updateBillType(data.billType);
       // Clear password since this is a regular file
       if (props.setCurrentFilePassword) {
         props.setCurrentFilePassword(null);
