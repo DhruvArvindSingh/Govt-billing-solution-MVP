@@ -30,4 +30,4 @@ RUN chmod +x ec2.sh
 EXPOSE 8080
 
 # Run the ec2.sh script
-CMD ["./ec2.sh"]
+CMD ["./docker.sh"]
