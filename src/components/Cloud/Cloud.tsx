@@ -132,9 +132,21 @@ const Cloud: React.FC<{
             const currentData = AppGeneral.getSpreadsheetContent();
             const fullFileName = `${fileName.trim()}.txt`;
 
+            // Check if current file is password protected
+            let isPasswordProtected = false;
+            try {
+                if (props.file && props.file !== 'default') {
+                    const currentFileData = await props.store._getFile(props.file);
+                    isPasswordProtected = currentFileData?.isPasswordProtected || false;
+                }
+            } catch (error) {
+                console.log('Could not determine password protection status, defaulting to false');
+                isPasswordProtected = false;
+            }
+
             const success = activeTab === 's3'
-                ? await saveFileToS3(fullFileName, currentData)
-                : await saveFileToDropbox(fullFileName, currentData);
+                ? await saveFileToS3(fullFileName, currentData, isPasswordProtected)
+                : await saveFileToDropbox(fullFileName, currentData, isPasswordProtected);
 
             if (success) {
                 const provider = activeTab === 's3' ? 'S3' : 'Dropbox';
@@ -150,9 +162,9 @@ const Cloud: React.FC<{
     };
 
     // Save file to S3 via API
-    const saveFileToS3 = async (fileName: string, content: string): Promise<boolean> => {
+    const saveFileToS3 = async (fileName: string, content: string, isPasswordProtected: boolean = false): Promise<boolean> => {
         try {
-            await ApiService.uploadFileS3(fileName, content);
+            await ApiService.uploadFileS3(fileName, content, isPasswordProtected);
             await loadFilesFromS3();
             return true;
         } catch (err) {
@@ -169,9 +181,9 @@ const Cloud: React.FC<{
     };
 
     // Save file to Dropbox via API
-    const saveFileToDropbox = async (fileName: string, content: string): Promise<boolean> => {
+    const saveFileToDropbox = async (fileName: string, content: string, isPasswordProtected: boolean = false): Promise<boolean> => {
         try {
-            await ApiService.uploadFileDropbox(fileName, content);
+            await ApiService.uploadFileDropbox(fileName, content, isPasswordProtected);
             await loadFilesFromDropbox();
             return true;
         } catch (err) {
@@ -250,9 +262,12 @@ const Cloud: React.FC<{
             }
 
             console.log("Successfully extracted content, length:", content.length);
+            content = JSON.parse(content);
+            console.log("content: ", content);
 
             return {
-                content: content,
+                content: content.content,
+                isPasswordProtected: content.isPasswordProtected,
                 modified: s3Files[key] || Date.now(),
                 created: s3Files[key] || Date.now()
             };
@@ -300,8 +315,26 @@ const Cloud: React.FC<{
 
             console.log("Successfully extracted content, length:", content.length);
 
+            // Parse content to check for password protection (similar to S3)
+            let parsedContent = content;
+            let isPasswordProtected = false;
+
+            try {
+                // Try to parse as JSON to check if it has metadata
+                const contentObj = JSON.parse(content);
+                if (contentObj && typeof contentObj === 'object' && contentObj.content !== undefined) {
+                    parsedContent = contentObj.content;
+                    isPasswordProtected = contentObj.isPasswordProtected || false;
+                }
+            } catch (parseError) {
+                // If parsing fails, treat as plain content
+                parsedContent = content;
+                isPasswordProtected = false;
+            }
+
             return {
-                content: content,
+                content: parsedContent,
+                isPasswordProtected: isPasswordProtected,
                 modified: dropboxFiles[fileName] || Date.now(),
                 created: dropboxFiles[fileName] || Date.now()
             };
@@ -496,10 +529,12 @@ const Cloud: React.FC<{
                 try {
                     const fileData = await props.store._getFile(fileName);
                     const content = fileData.content;
+                    const isPasswordProtected = fileData.isPasswordProtected || false;
+                    console.log('content: ', content);
 
                     const success = activeTab === 's3'
-                        ? await saveFileToS3(fileName, decodeURIComponent(content))
-                        : await saveFileToDropbox(fileName, decodeURIComponent(content));
+                        ? await saveFileToS3(fileName, content, isPasswordProtected)
+                        : await saveFileToDropbox(fileName, content, isPasswordProtected);
 
                     if (success) {
                         successCount++;
@@ -615,12 +650,14 @@ const Cloud: React.FC<{
             const file = new File(
                 new Date().toString(), // created
                 new Date().toString(), // modified
-                encodeURIComponent(fileData.content), // content (encode for storage)
+                fileData.content, // content (encode for storage)
                 filename, // name
-                1 // billType - default value
+                1,  // billType - default value
+                fileData.isPasswordProtected || false,
+                fileData.isPasswordProtected ? undefined : null // If protected, password is unknown
             );
 
-            await props.store._saveFile(file);
+            await props.store._saveFile(file, false);
             return true;
         } catch (error) {
             console.error(`Error downloading file ${filename}:`, error);

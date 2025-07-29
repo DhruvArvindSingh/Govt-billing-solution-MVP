@@ -66,8 +66,10 @@ const Files: React.FC<{
 
   const editProtectedFile = async (key: string, password: string): Promise<boolean> => {
     try {
+      console.log("editProtectedFile: ", key, password);
       setPasswordError("");
       const data = await props.store._getProtectedFile(key, password);
+      console.log("data: ", data);
       AppGeneral.viewFile(key, decodeURIComponent(data.content));
       props.updateSelectedFile(key);
       props.updateBillType(data.billType);
@@ -81,6 +83,20 @@ const Files: React.FC<{
       props.store._saveLastOpenedFile(key).catch(error => {
         console.error('Error saving last opened filename:', error);
       });
+
+      // Update the file's password in Local Storage after successful password entry
+      try {
+        // Get the file data from Local Storage
+        const fileData = await props.store._getFile(key);
+
+        // Update the password field in the file data
+        fileData.password = password;
+
+        // Save the updated file data back to Local Storage
+        await props.store._saveFile(fileData, false);
+      } catch (err) {
+        console.error("Failed to update password in Local Storage:", err);
+      }
 
       return true;
     } catch (error) {
@@ -187,12 +203,14 @@ const Files: React.FC<{
 
       for (const fileName of selectedFileKeys) {
         try {
+          console.log("\nSelected files:")
           const fileData = await props.store._getFile(fileName);
-          console.log("fileData", fileData);
+          console.log("fileData: ", fileData);
+          // This line decodes the file content from its URL-encoded format so it can be uploaded in its original form.
           const content = decodeURIComponent(fileData.content);
           console.log("content", content);
 
-          await ApiService.uploadFileS3(fileName, content);
+          await ApiService.uploadFileS3(fileName, content, fileData.isPasswordProtected);
           successCount++;
         } catch (error) {
           console.error(`Error uploading ${fileName} to S3:`, error);
@@ -246,8 +264,9 @@ const Files: React.FC<{
         try {
           const fileData = await props.store._getFile(fileName);
           const content = decodeURIComponent(fileData.content);
+          const isPasswordProtected = fileData.isPasswordProtected || false;
 
-          await ApiService.uploadFileDropbox(fileName, content);
+          await ApiService.uploadFileDropbox(fileName, content, isPasswordProtected);
           successCount++;
         } catch (error) {
           console.error(`Error uploading ${fileName} to Dropbox:`, error);
@@ -528,6 +547,7 @@ const Files: React.FC<{
         onSubmit={async (name: string, password: string) => {
           const success = await editProtectedFile(protectedFileName, password);
           if (success) {
+
             setListFiles(false);
           }
           return success;

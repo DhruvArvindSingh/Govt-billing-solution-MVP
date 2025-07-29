@@ -82,12 +82,12 @@ export class Local {
   };
 
   // Unified save method for both protected and regular files
-  _saveFile = async (file: File) => {
+  _saveFile = async (file: File, needEncrypt: boolean = true) => {
     try {
       let content = file.content;
 
       // If file is password protected, encrypt the content
-      if (file.isPasswordProtected && file.password) {
+      if (file.isPasswordProtected && file.password && needEncrypt) {
         content = this._encryptContent(file.content, file.password);
       }
 
@@ -129,6 +129,7 @@ export class Local {
   _getFileWithPassword = async (name: string, password?: string) => {
     try {
       const rawData = await Preferences.get({ key: name });
+      console.log("_getFileWithPassword rawData: ", rawData);
       const fileData = JSON.parse(rawData.value);
 
       // Handle backward compatibility - check for old "Protected_" format
@@ -230,7 +231,7 @@ export class Local {
     await Preferences.remove({ key: '__last_opened_file__' });
   };
 
-  _checkKey = async (key: string) => {
+  _checkKey = async (key: string): Promise<boolean> => {
     const { keys } = await Preferences.keys();
     if (keys.includes(key, 0)) {
       return true;

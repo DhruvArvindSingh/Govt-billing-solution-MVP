@@ -13,6 +13,7 @@ import {
     IonIcon,
 } from "@ionic/react";
 import { checkmark, close } from "ionicons/icons";
+import { Local } from "../Storage/LocalStorage";
 
 interface PasswordModalProps {
     isOpen: boolean;
@@ -41,36 +42,19 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
     const [localPasswordError, setLocalPasswordError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const localStore = new Local();
+
     const validatePassword = (pwd: string): string => {
-        if (pwd.length < 8) {
+        if (pwd.length < 4) {
             return "Password must be at least 8 characters long";
         }
         if (pwd.length > 128) {
             return "Password cannot exceed 128 characters";
         }
-        if (!/[A-Z]/.test(pwd)) {
-            return "Password must contain at least one uppercase letter";
-        }
-        if (!/[a-z]/.test(pwd)) {
-            return "Password must contain at least one lowercase letter";
-        }
-        if (!/\d/.test(pwd)) {
-            return "Password must contain at least one number";
-        }
-        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
-            return "Password must contain at least one special character";
-        }
-        // Check for common weak patterns
-        if (/(.)\1{2,}/.test(pwd)) {
-            return "Password cannot contain repeated characters";
-        }
-        if (/123|abc|qwe|pass|admin/i.test(pwd)) {
-            return "Password cannot contain common patterns";
-        }
         return "";
     };
 
-    const validateName = (fileName: string): string => {
+    const validateName = async (fileName: string): Promise<string> => {
         if (!fileName.trim()) {
             return "File name is required";
         }
@@ -79,6 +63,17 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
         }
         if (!/^[a-zA-Z0-9_\-\s]+$/.test(fileName.trim())) {
             return "File name can only contain letters, numbers, spaces, hyphens, and underscores";
+        }
+        // console.log(`localStore._checkKey(fileName.trim()): `, await localStore._checkKey(fileName.trim()));
+        if (await localStore._checkKey(fileName.trim())) {
+            return "File name already exists";
+        }
+
+        if (fileName.trim() === "default") {
+            return "File name cannot be 'default'";
+        }
+        if (fileName.trim() === "__last_opened_file__") {
+            return "File name cannot be '__last_opened_file__'";
         }
         return "";
     };
@@ -90,7 +85,7 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
         let hasError = false;
 
         if (showNameField) {
-            const nameValidationError = validateName(name);
+            const nameValidationError = await validateName(name);
             if (nameValidationError) {
                 setLocalNameError(nameValidationError);
                 hasError = true;

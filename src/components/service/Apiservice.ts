@@ -149,6 +149,9 @@ class ApiService {
             console.log('Response data:', response.data);
             console.log('Response data type:', typeof response.data);
             console.log('Response data keys:', Object.keys(response.data || {}));
+            const content = JSON.parse(response.data.content);
+            console.log(`content: ${content.content}`);
+            console.log(`isPasswordProtected: ${content.isPasswordProtected}`);
 
             const responseData = this.handleApiResponse(response);
 
@@ -183,6 +186,7 @@ class ApiService {
                 console.error('Final validation failed. FileContent:', fileContent);
                 throw new Error('No content received from S3 API');
             }
+            console.log(`fileContent: `, fileContent);
 
             return fileContent;
         } catch (error) {
@@ -191,7 +195,7 @@ class ApiService {
         }
     }
 
-    static async uploadFileS3(fileName: string, content: string): Promise<ApiResponse> {
+    static async uploadFileS3(fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
         try {
             if (!fileName || typeof fileName !== 'string') {
                 throw new Error('Invalid fileName provided');
@@ -208,7 +212,7 @@ class ApiService {
 
             const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileS3', {
                 fileName,
-                content,
+                content: JSON.stringify({ content, isPasswordProtected }),
                 token
             });
 
@@ -268,6 +272,7 @@ class ApiService {
             console.log('Response data type:', typeof response.data);
             console.log('Response data keys:', Object.keys(response.data || {}));
 
+
             const responseData = this.handleApiResponse(response);
 
             // Handle different possible response structures
@@ -309,7 +314,7 @@ class ApiService {
         }
     }
 
-    static async uploadFileDropbox(fileName: string, content: string): Promise<ApiResponse> {
+    static async uploadFileDropbox(fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
         try {
             if (!fileName || typeof fileName !== 'string') {
                 throw new Error('Invalid fileName provided');
@@ -326,7 +331,7 @@ class ApiService {
 
             const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileDropbox', {
                 fileName,
-                content,
+                content: JSON.stringify({ content, isPasswordProtected }),
                 token
             });
 
