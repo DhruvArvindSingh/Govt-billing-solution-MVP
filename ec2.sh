@@ -14,3 +14,5 @@ npm i -g @ionic/cli
 npm i -g pm2
 
 npm run build
+
+ionic serve --host 0.0.0.0 --port 8080

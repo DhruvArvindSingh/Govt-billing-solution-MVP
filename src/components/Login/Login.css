@@ -1,6 +1,7 @@
 /* Login Component Styles */
 .login-modal {
-    --height: auto;
+    /* Use a fixed height on web to avoid the modal collapsing to just the header */
+    --height: 420px;
     --width: 450px;
     --max-width: 90vw;
     --max-height: 90vh;

@@ -10,6 +10,26 @@ export default defineConfig({
     react(),
     legacy(),
     commonjs(),
-    VitePWA({ registerType: "autoUpdate" }),
+    VitePWA({
+      // auto-register the SW and check for updates periodically
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+      // use the manifest.json from public/ to avoid duplication
+      manifest: false,
+      // precache and cache runtime assets for offline
+      includeAssets: [
+        "favicon.png",
+        "favicon.ico",
+        "apple-touch-icon-180x180.png",
+        "icons/*",
+      ],
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"]
+      },
+      // disable SW in dev to avoid conflicts with commonjs plugin; PWA works in prod build
+      devOptions: {
+        enabled: false,
+      },
+    }),
   ],
 });
