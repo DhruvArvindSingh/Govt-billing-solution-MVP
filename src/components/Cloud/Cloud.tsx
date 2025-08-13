@@ -10,9 +10,7 @@ import {
     IonItem,
     IonButton,
     IonList,
-    IonLabel,
     IonAlert,
-    IonItemGroup,
     IonContent,
     IonHeader,
     IonTitle,
@@ -50,7 +48,6 @@ const Cloud: React.FC<{
     const [showMoveAlert, setShowMoveAlert] = useState(false);
     const [moveOperation, setMoveOperation] = useState<'toLocal' | 'toServer' | null>(null);
     const [conflictFiles, setConflictFiles] = useState<string[]>([]);
-    const [currentMoveFile, setCurrentMoveFile] = useState<string | null>(null);
 
     // Load files from S3 via API
     const loadFilesFromS3 = async () => {
@@ -139,8 +136,8 @@ const Cloud: React.FC<{
                     const currentFileData = await props.store._getFile(props.file);
                     isPasswordProtected = currentFileData?.isPasswordProtected || false;
                 }
-            } catch (error) {
-                console.log('Could not determine password protection status, defaulting to false');
+            } catch (err) {
+                console.error('Failed to determine password protection status', err);
                 isPasswordProtected = false;
             }
 
