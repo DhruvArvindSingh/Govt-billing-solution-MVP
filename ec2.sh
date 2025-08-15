@@ -15,4 +15,40 @@ npm i -g pm2
 
 npm run build
 
-ionic serve --host 0.0.0.0 --port 8080
+pm2 start "ionic serve --no-open --host 0.0.0.0 --port 8101" --name ionic-8101
+
+sudo apt install nginx -y
+
+sudo apt install certbot python3-certbot-nginx -y
+
+sudo mv ./nginx.conf /etc/nginx/sites-available/mvp.dsingh.fun
+
+# Create symbolic link to enable the site
+sudo ln -s /etc/nginx/sites-available/mvp.dsingh.fun /etc/nginx/sites-enabled/
+
+# Test Nginx configuration
+sudo nginx -t
+
+# Restart Nginx
+sudo systemctl restart nginx
+
+# Obtain and install SSL certificate
+sudo certbot --nginx -d mvp.dsingh.fun
+
+# Test Nginx configuration
+sudo nginx -t
+
+# Reload Nginx
+sudo systemctl reload nginx
+
+# Check SSL certificate status
+sudo certbot certificates
+
+# Test automatic renewal
+sudo certbot renew --dry-run
+
+# Check renewal timer status
+sudo systemctl status certbot.timer
+
+# Enable if not already enabled
+sudo systemctl enable --now certbot.timer
