@@ -32,9 +32,11 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'dropbox'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'dropbox' | 'postgres' | 'firebase'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
     const [dropboxFiles, setDropboxFiles] = useState<{ [key: string]: number }>({});
+    const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
+    const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -54,7 +56,7 @@ const Cloud: React.FC<{
         setLoading(true);
         try {
             const response = await ApiService.listAllS3();
-            setS3Files(response.s3Files || {});
+            setS3Files(response.files || {});
         } catch (err) {
             console.error('Failed to load files from S3', err);
             if (err.response?.status === 401) {
@@ -85,6 +87,42 @@ const Cloud: React.FC<{
         setLoading(false);
     };
 
+    // Load files from PostgreSQL via API
+    const loadFilesFromPostgres = async () => {
+        setLoading(true);
+        try {
+            const response = await ApiService.listAllPostgres();
+            setPostgresFiles(response.files || {});
+        } catch (err) {
+            console.error('Failed to load files from PostgreSQL', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else {
+                setToastMessage('Failed to load files from PostgreSQL');
+            }
+            setShowToast(true);
+        }
+        setLoading(false);
+    };
+
+    // Load files from Firebase via API
+    const loadFilesFromFirebase = async () => {
+        setLoading(true);
+        try {
+            const response = await ApiService.listAllFirebase();
+            setFirebaseFiles(response.files || {});
+        } catch (err) {
+            console.error('Failed to load files from Firebase', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else {
+                setToastMessage('Failed to load files from Firebase');
+            }
+            setShowToast(true);
+        }
+        setLoading(false);
+    };
+
     // Load files from local storage
     const loadLocalFiles = async () => {
         try {
@@ -98,18 +136,33 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'dropbox') => {
+    const switchTab = async (tab: 's3' | 'dropbox' | 'postgres' | 'firebase') => {
         setActiveTab(tab);
         if (tab === 's3' && Object.keys(s3Files).length === 0) {
             await loadFilesFromS3();
         } else if (tab === 'dropbox' && Object.keys(dropboxFiles).length === 0) {
             await loadFilesFromDropbox();
+        } else if (tab === 'postgres' && Object.keys(postgresFiles).length === 0) {
+            await loadFilesFromPostgres();
+        } else if (tab === 'firebase' && Object.keys(firebaseFiles).length === 0) {
+            await loadFilesFromFirebase();
         }
     };
 
     // Get current files based on active tab
     const getCurrentFiles = () => {
-        return activeTab === 's3' ? s3Files : dropboxFiles;
+        switch (activeTab) {
+            case 's3':
+                return s3Files;
+            case 'dropbox':
+                return dropboxFiles;
+            case 'postgres':
+                return postgresFiles;
+            case 'firebase':
+                return firebaseFiles;
+            default:
+                return s3Files;
+        }
     };
 
     // Upload current invoice to cloud
@@ -141,12 +194,38 @@ const Cloud: React.FC<{
                 isPasswordProtected = false;
             }
 
-            const success = activeTab === 's3'
-                ? await saveFileToS3(fullFileName, currentData, isPasswordProtected)
-                : await saveFileToDropbox(fullFileName, currentData, isPasswordProtected);
+            let success = false;
+            switch (activeTab) {
+                case 's3':
+                    success = await saveFileToS3(fullFileName, currentData, isPasswordProtected);
+                    break;
+                case 'dropbox':
+                    success = await saveFileToDropbox(fullFileName, currentData, isPasswordProtected);
+                    break;
+                case 'postgres':
+                    success = await saveFileToPostgres(fullFileName, currentData, isPasswordProtected);
+                    break;
+                case 'firebase':
+                    success = await saveFileToFirebase(fullFileName, currentData, isPasswordProtected);
+                    break;
+            }
 
             if (success) {
-                const provider = activeTab === 's3' ? 'S3' : 'Dropbox';
+                let provider = '';
+                switch (activeTab) {
+                    case 's3':
+                        provider = 'S3';
+                        break;
+                    case 'dropbox':
+                        provider = 'Dropbox';
+                        break;
+                    case 'postgres':
+                        provider = 'PostgreSQL';
+                        break;
+                    case 'firebase':
+                        provider = 'Firebase';
+                        break;
+                }
                 setToastMessage(`Invoice saved to ${provider} as "${fullFileName}"`);
                 setShowToast(true);
             }
@@ -199,13 +278,63 @@ const Cloud: React.FC<{
         }
     };
 
+    // Save file to PostgreSQL via API
+    const saveFileToPostgres = async (fileName: string, content: string, isPasswordProtected: boolean = false): Promise<boolean> => {
+        try {
+            await ApiService.uploadFilePostgres(fileName, content, isPasswordProtected);
+            await loadFilesFromPostgres();
+            return true;
+        } catch (err) {
+            console.error('Failed to save file to PostgreSQL', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+                setShowToast(true);
+            } else {
+                setToastMessage('Failed to save file to PostgreSQL. Please try again.');
+                setShowToast(true);
+            }
+            return false;
+        }
+    };
+
+    // Save file to Firebase via API
+    const saveFileToFirebase = async (fileName: string, content: string, isPasswordProtected: boolean = false): Promise<boolean> => {
+        try {
+            await ApiService.uploadFileFirebase(fileName, content, isPasswordProtected);
+            await loadFilesFromFirebase();
+            return true;
+        } catch (err) {
+            console.error('Failed to save file to Firebase', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+                setShowToast(true);
+            } else {
+                setToastMessage('Failed to save file to Firebase. Please try again.');
+                setShowToast(true);
+            }
+            return false;
+        }
+    };
+
     // Edit file from cloud
     const editFile = async (key: string) => {
         setLoading(true);
         try {
-            const fileData = activeTab === 's3'
-                ? await getFileFromS3(key)
-                : await getFileFromDropbox(key);
+            let fileData = null;
+            switch (activeTab) {
+                case 's3':
+                    fileData = await getFileFromS3(key);
+                    break;
+                case 'dropbox':
+                    fileData = await getFileFromDropbox(key);
+                    break;
+                case 'postgres':
+                    fileData = await getFileFromPostgres(key);
+                    break;
+                case 'firebase':
+                    fileData = await getFileFromFirebase(key);
+                    break;
+            }
 
             if (fileData && fileData.content) {
                 AppGeneral.viewFile(key, fileData.content);
@@ -346,10 +475,125 @@ const Cloud: React.FC<{
         }
     };
 
+    // Get file from PostgreSQL via API
+    const getFileFromPostgres = async (fileName: string) => {
+        try {
+            console.log("Getting file from PostgreSQL via API:", fileName);
+            const response = await ApiService.getFilePostgres(fileName);
+            console.log("PostgreSQL API response:", response);
+
+            if (!response) {
+                console.error("No response received from PostgreSQL API");
+                throw new Error("No response received from PostgreSQL API");
+            }
+
+            let content = null;
+            if (response.content !== undefined) {
+                content = response.content;
+            } else if (typeof response === 'string') {
+                content = response;
+            } else {
+                console.error("Unexpected response format:", response);
+                throw new Error("Unexpected response format from PostgreSQL API");
+            }
+
+            if (content === null || content === undefined) {
+                console.error("No content found in response");
+                throw new Error("No file content received from PostgreSQL");
+            }
+
+            console.log("Successfully extracted content, length:", content.length);
+            content = JSON.parse(content);
+            console.log("content: ", content);
+
+            return {
+                content: content.content,
+                isPasswordProtected: content.isPasswordProtected,
+                modified: postgresFiles[fileName] || Date.now(),
+                created: postgresFiles[fileName] || Date.now()
+            };
+        } catch (err) {
+            console.error('Failed to get file from PostgreSQL', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+                setShowToast(true);
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in PostgreSQL.');
+                setShowToast(true);
+            }
+            return null;
+        }
+    };
+
+    // Get file from Firebase via API
+    const getFileFromFirebase = async (fileName: string) => {
+        try {
+            console.log("Getting file from Firebase via API:", fileName);
+            const response = await ApiService.getFileFirebase(fileName);
+            console.log("Firebase API response:", response);
+
+            if (!response) {
+                console.error("No response received from Firebase API");
+                throw new Error("No response received from Firebase API");
+            }
+
+            let content = null;
+            if (response.content !== undefined) {
+                content = response.content;
+            } else if (typeof response === 'string') {
+                content = response;
+            } else {
+                console.error("Unexpected response format:", response);
+                throw new Error("Unexpected response format from Firebase API");
+            }
+
+            if (content === null || content === undefined) {
+                console.error("No content found in response");
+                throw new Error("No file content received from Firebase");
+            }
+
+            console.log("Successfully extracted content, length:", content.length);
+            content = JSON.parse(content);
+            console.log("content: ", content);
+
+            return {
+                content: content.content,
+                isPasswordProtected: content.isPasswordProtected,
+                modified: firebaseFiles[fileName] || Date.now(),
+                created: firebaseFiles[fileName] || Date.now()
+            };
+        } catch (err) {
+            console.error('Failed to get file from Firebase', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+                setShowToast(true);
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in Firebase.');
+                setShowToast(true);
+            }
+            return null;
+        }
+    };
+
     // Delete file
     const deleteFile = (key: string) => {
         setCurrentKey(key);
-        setAlertMessage(`Do you want to delete the ${key} file from ${activeTab === 's3' ? 'S3' : 'Dropbox'}?`);
+        let provider = '';
+        switch (activeTab) {
+            case 's3':
+                provider = 'S3';
+                break;
+            case 'dropbox':
+                provider = 'Dropbox';
+                break;
+            case 'postgres':
+                provider = 'PostgreSQL';
+                break;
+            case 'firebase':
+                provider = 'Firebase';
+                break;
+        }
+        setAlertMessage(`Do you want to delete the ${key} file from ${provider}?`);
         setShowAlert(true);
     };
 
@@ -358,9 +602,21 @@ const Cloud: React.FC<{
         if (!currentKey) return;
 
         setLoading(true);
-        const success = activeTab === 's3'
-            ? await deleteFileFromS3(currentKey)
-            : await deleteFileFromDropbox(currentKey);
+        let success = false;
+        switch (activeTab) {
+            case 's3':
+                success = await deleteFileFromS3(currentKey);
+                break;
+            case 'dropbox':
+                success = await deleteFileFromDropbox(currentKey);
+                break;
+            case 'postgres':
+                success = await deleteFileFromPostgres(currentKey);
+                break;
+            case 'firebase':
+                success = await deleteFileFromFirebase(currentKey);
+                break;
+        }
 
         if (success) {
             setToastMessage('File deleted successfully');
@@ -409,6 +665,46 @@ const Cloud: React.FC<{
                 setToastMessage('File not found in Dropbox.');
             } else {
                 setToastMessage('Failed to delete file from Dropbox. Please try again.');
+            }
+            setShowToast(true);
+            return false;
+        }
+    };
+
+    // Delete from PostgreSQL via API
+    const deleteFileFromPostgres = async (fileName: string): Promise<boolean> => {
+        try {
+            await ApiService.deleteFilePostgres(fileName);
+            await loadFilesFromPostgres();
+            return true;
+        } catch (err) {
+            console.error('Failed to delete file from PostgreSQL', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in PostgreSQL.');
+            } else {
+                setToastMessage('Failed to delete file from PostgreSQL. Please try again.');
+            }
+            setShowToast(true);
+            return false;
+        }
+    };
+
+    // Delete from Firebase via API
+    const deleteFileFromFirebase = async (fileName: string): Promise<boolean> => {
+        try {
+            await ApiService.deleteFileFirebase(fileName);
+            await loadFilesFromFirebase();
+            return true;
+        } catch (err) {
+            console.error('Failed to delete file from Firebase', err);
+            if (err.response?.status === 401) {
+                setToastMessage('Authentication failed. Please login and try again.');
+            } else if (err.response?.status === 404) {
+                setToastMessage('File not found in Firebase.');
+            } else {
+                setToastMessage('Failed to delete file from Firebase. Please try again.');
             }
             setShowToast(true);
             return false;
@@ -524,9 +820,21 @@ const Cloud: React.FC<{
                     const isPasswordProtected = fileData.isPasswordProtected || false;
                     console.log('content: ', content);
 
-                    const success = activeTab === 's3'
-                        ? await saveFileToS3(fileName, content, isPasswordProtected)
-                        : await saveFileToDropbox(fileName, content, isPasswordProtected);
+                    let success = false;
+                    switch (activeTab) {
+                        case 's3':
+                            success = await saveFileToS3(fileName, content, isPasswordProtected);
+                            break;
+                        case 'dropbox':
+                            success = await saveFileToDropbox(fileName, content, isPasswordProtected);
+                            break;
+                        case 'postgres':
+                            success = await saveFileToPostgres(fileName, content, isPasswordProtected);
+                            break;
+                        case 'firebase':
+                            success = await saveFileToFirebase(fileName, content, isPasswordProtected);
+                            break;
+                    }
 
                     if (success) {
                         successCount++;
@@ -630,9 +938,21 @@ const Cloud: React.FC<{
     // Helper method to download and save a single file
     const downloadAndSaveFile = async (filename: string): Promise<boolean> => {
         try {
-            const fileData = activeTab === 's3'
-                ? await getFileFromS3(filename)
-                : await getFileFromDropbox(filename);
+            let fileData = null;
+            switch (activeTab) {
+                case 's3':
+                    fileData = await getFileFromS3(filename);
+                    break;
+                case 'dropbox':
+                    fileData = await getFileFromDropbox(filename);
+                    break;
+                case 'postgres':
+                    fileData = await getFileFromPostgres(filename);
+                    break;
+                case 'firebase':
+                    fileData = await getFileFromFirebase(filename);
+                    break;
+            }
 
             if (!fileData || !fileData.content) {
                 return false;
@@ -661,10 +981,19 @@ const Cloud: React.FC<{
     useEffect(() => {
         if (showModal) {
             loadLocalFiles(); // Always load local files when modal opens
-            if (activeTab === 's3') {
-                loadFilesFromS3();
-            } else {
-                loadFilesFromDropbox();
+            switch (activeTab) {
+                case 's3':
+                    loadFilesFromS3();
+                    break;
+                case 'dropbox':
+                    loadFilesFromDropbox();
+                    break;
+                case 'postgres':
+                    loadFilesFromPostgres();
+                    break;
+                case 'firebase':
+                    loadFilesFromFirebase();
+                    break;
             }
         }
     }, [showModal, activeTab]);
@@ -720,6 +1049,20 @@ const Cloud: React.FC<{
                         >
                             📦 Dropbox
                         </button>
+                        <button
+                            className={`tab-button ${activeTab === 'postgres' ? 'active' : ''}`}
+                            onClick={() => switchTab('postgres')}
+                            disabled={loading}
+                        >
+                            🐘 PostgreSQL
+                        </button>
+                        <button
+                            className={`tab-button ${activeTab === 'firebase' ? 'active' : ''}`}
+                            onClick={() => switchTab('firebase')}
+                            disabled={loading}
+                        >
+                            🔥 Firebase
+                        </button>
                     </div>
 
                     {/* Search and Upload */}
@@ -768,7 +1111,12 @@ const Cloud: React.FC<{
                         <div className="file-list-container">
                             {loading && (
                                 <div className="loading-message">
-                                    Loading files from {activeTab === 's3' ? 'S3' : 'Dropbox'}...
+                                    Loading files from {
+                                        activeTab === 's3' ? 'S3' :
+                                            activeTab === 'dropbox' ? 'Dropbox' :
+                                                activeTab === 'postgres' ? 'PostgreSQL' :
+                                                    'Firebase'
+                                    }...
                                 </div>
                             )}
 
@@ -780,7 +1128,12 @@ const Cloud: React.FC<{
 
                             {!loading && Object.keys(files).length === 0 && !searchTerm && (
                                 <div className="no-files-message">
-                                    No files found in {activeTab === 's3' ? 'S3' : 'Dropbox'}
+                                    No files found in {
+                                        activeTab === 's3' ? 'S3' :
+                                            activeTab === 'dropbox' ? 'Dropbox' :
+                                                activeTab === 'postgres' ? 'PostgreSQL' :
+                                                    'Firebase'
+                                    }
                                 </div>
                             )}
 

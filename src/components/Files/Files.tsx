@@ -21,6 +21,8 @@ import {
   IonRow,
   IonCol,
   IonGrid,
+  IonSelect,
+  IonSelectOption,
 } from "@ionic/react";
 import { fileTrayFull, trash, create, shield, cloudUpload } from "ionicons/icons";
 import PasswordModal from "../PasswordModal/PasswordModal";
@@ -46,6 +48,7 @@ const Files: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [uploadAlert, setUploadAlert] = useState(false);
   const [uploadAlertMessage, setUploadAlertMessage] = useState("");
+  const [selectedDatabase, setSelectedDatabase] = useState<string>("s3");
 
   const editFile = (key) => {
     props.store._getFile(key).then((data: any) => {
@@ -167,9 +170,11 @@ const Files: React.FC<{
   };
 
   // Upload functions
-  const handleUploadS3 = async () => {
+
+  const handleUpload = async () => {
     if (!props.isLoggedIn) {
-      setUploadAlertMessage("Please login first to upload files to S3.");
+      const databaseName = getDatabaseDisplayName(selectedDatabase);
+      setUploadAlertMessage(`Please login first to upload files to ${databaseName}.`);
       setUploadAlert(true);
       return;
     }
@@ -185,65 +190,7 @@ const Files: React.FC<{
     try {
       let successCount = 0;
       let errorCount = 0;
-
-      for (const fileName of selectedFileKeys) {
-        try {
-          console.log("\nSelected files:")
-          const fileData = await props.store._getFile(fileName);
-          console.log("fileData: ", fileData);
-          // This line decodes the file content from its URL-encoded format so it can be uploaded in its original form.
-          const content = decodeURIComponent(fileData.content);
-          console.log("content", content);
-
-          await ApiService.uploadFileS3(fileName, content, fileData.isPasswordProtected);
-          successCount++;
-        } catch (error) {
-          console.error(`Error uploading ${fileName} to S3:`, error);
-          errorCount++;
-        }
-      }
-
-      // Clear selections and close modal
-      clearSelectedFiles();
-      setListFiles(false);
-
-      // Show result message
-      if (successCount > 0 && errorCount === 0) {
-        setUploadAlertMessage(`Successfully uploaded ${successCount} file(s) to S3`);
-      } else if (successCount > 0 && errorCount > 0) {
-        setUploadAlertMessage(`Uploaded ${successCount} file(s), ${errorCount} failed`);
-      } else {
-        setUploadAlertMessage(`Failed to upload files to S3`);
-      }
-      setUploadAlert(true);
-
-    } catch (error) {
-      console.error('Batch upload to S3 error:', error);
-      setUploadAlertMessage('Error during batch upload to S3');
-      setUploadAlert(true);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleUploadDropbox = async () => {
-    if (!props.isLoggedIn) {
-      setUploadAlertMessage("Please login first to upload files to Dropbox.");
-      setUploadAlert(true);
-      return;
-    }
-
-    const selectedFileKeys = getSelectedFiles();
-    if (selectedFileKeys.length === 0) {
-      setUploadAlertMessage("No files selected for upload.");
-      setUploadAlert(true);
-      return;
-    }
-
-    setUploading(true);
-    try {
-      let successCount = 0;
-      let errorCount = 0;
+      const databaseName = getDatabaseDisplayName(selectedDatabase);
 
       for (const fileName of selectedFileKeys) {
         try {
@@ -251,10 +198,24 @@ const Files: React.FC<{
           const content = decodeURIComponent(fileData.content);
           const isPasswordProtected = fileData.isPasswordProtected || false;
 
-          await ApiService.uploadFileDropbox(fileName, content, isPasswordProtected);
+          // Call appropriate upload function based on selected database
+          switch (selectedDatabase) {
+            case 's3':
+              await ApiService.uploadFileS3(fileName, content, isPasswordProtected);
+              break;
+            case 'dropbox':
+              await ApiService.uploadFileDropbox(fileName, content, isPasswordProtected);
+              break;
+            case 'postgres':
+              await ApiService.uploadFilePostgres(fileName, content, isPasswordProtected);
+              break;
+            case 'firebase':
+              await ApiService.uploadFileFirebase(fileName, content, isPasswordProtected);
+              break;
+          }
           successCount++;
         } catch (error) {
-          console.error(`Error uploading ${fileName} to Dropbox:`, error);
+          console.error(`Error uploading ${fileName} to ${databaseName}:`, error);
           errorCount++;
         }
       }
@@ -265,20 +226,36 @@ const Files: React.FC<{
 
       // Show result message
       if (successCount > 0 && errorCount === 0) {
-        setUploadAlertMessage(`Successfully uploaded ${successCount} file(s) to Dropbox`);
+        setUploadAlertMessage(`Successfully uploaded ${successCount} file(s) to ${databaseName}`);
       } else if (successCount > 0 && errorCount > 0) {
         setUploadAlertMessage(`Uploaded ${successCount} file(s), ${errorCount} failed`);
       } else {
-        setUploadAlertMessage(`Failed to upload files to Dropbox`);
+        setUploadAlertMessage(`Failed to upload files to ${databaseName}`);
       }
       setUploadAlert(true);
 
     } catch (error) {
-      console.error('Batch upload to Dropbox error:', error);
-      setUploadAlertMessage('Error during batch upload to Dropbox');
+      const databaseName = getDatabaseDisplayName(selectedDatabase);
+      console.error(`Batch upload to ${databaseName} error:`, error);
+      setUploadAlertMessage(`Error during batch upload to ${databaseName}`);
       setUploadAlert(true);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const getDatabaseDisplayName = (database: string): string => {
+    switch (database) {
+      case 's3':
+        return 'S3';
+      case 'dropbox':
+        return 'Dropbox';
+      case 'postgres':
+        return 'PostgreSQL';
+      case 'firebase':
+        return 'Firebase';
+      default:
+        return database;
     }
   };
 
@@ -418,25 +395,32 @@ const Files: React.FC<{
               <IonGrid>
                 <IonRow>
                   <IonCol size="6">
-                    <IonButton
-                      expand="block"
-                      color="primary"
-                      onClick={handleUploadS3}
-                      disabled={uploading}
+                    <IonSelect
+                      value={selectedDatabase}
+                      placeholder="Select Database"
+                      onIonChange={(e) => setSelectedDatabase(e.detail.value)}
+                      interface="popover"
+                      style={{
+                        '--background': 'white',
+                        '--border-radius': '8px',
+                        '--padding': '8px 12px'
+                      }}
                     >
-                      <IonIcon icon={cloudUpload} slot="start" />
-                      Upload S3
-                    </IonButton>
+                      <IonSelectOption value="s3">🗄️ S3</IonSelectOption>
+                      <IonSelectOption value="dropbox">📦 Dropbox</IonSelectOption>
+                      <IonSelectOption value="postgres">🐘 PostgreSQL</IonSelectOption>
+                      <IonSelectOption value="firebase">🔥 Firebase</IonSelectOption>
+                    </IonSelect>
                   </IonCol>
                   <IonCol size="6">
                     <IonButton
                       expand="block"
-                      color="secondary"
-                      onClick={handleUploadDropbox}
+                      color="primary"
+                      onClick={handleUpload}
                       disabled={uploading}
                     >
                       <IonIcon icon={cloudUpload} slot="start" />
-                      Upload Dropbox
+                      Upload to
                     </IonButton>
                   </IonCol>
                 </IonRow>
