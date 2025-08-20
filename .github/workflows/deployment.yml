@@ -26,11 +26,12 @@ jobs:
             export PATH="$NVM_DIR/versions/node/v22.16.0/bin:$PATH"
             
             ls -al
-            if [ -d "Portfolio" ]; then
-                echo "📦 Portfolio directory exists. Pulling latest changes..."
-                cd Portfolio
-                git pull origin master
+            if [ -d "Govt-billing-solution-MVP" ]; then
+                echo "📦 Govt-billing-solution-MVP directory exists. Pulling latest changes..."
+                cd Govt-billing-solution-MVP
+                git pull origin development_1
                 npm install
+                npm run build
                 pm2 restart all
             else
                 echo "❌ Portfolio directory not found!"

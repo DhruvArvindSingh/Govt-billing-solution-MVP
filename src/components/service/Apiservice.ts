@@ -223,6 +223,7 @@ class ApiService {
             const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileS3', {
                 fileName,
                 fileContent: JSON.stringify({ content, isPasswordProtected }),
+                isPasswordProtected,
                 token
             });
 
@@ -342,6 +343,7 @@ class ApiService {
             const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileDropbox', {
                 fileName,
                 content: JSON.stringify({ content, isPasswordProtected }),
+                isPasswordProtected,
                 token
             });
 
@@ -464,6 +466,7 @@ class ApiService {
             const response = await apiClient.post<ApiResponse>('/api/v1/uploadFilePostgres', {
                 fileName,
                 fileContent: JSON.stringify({ content, isPasswordProtected }),
+                isPasswordProtected,
                 token
             });
 
@@ -586,6 +589,7 @@ class ApiService {
             const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileFirebase', {
                 fileName,
                 fileContent: JSON.stringify({ content, isPasswordProtected }),
+                isPasswordProtected,
                 token
             });
 
