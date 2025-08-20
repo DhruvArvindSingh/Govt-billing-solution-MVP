@@ -18,8 +18,10 @@ import {
     IonToast,
     IonLoading,
 } from "@ionic/react";
-import { cloud, trash, create, cloudUpload, close } from "ionicons/icons";
+import { cloud, trash, create, cloudUpload, close, shield } from "ionicons/icons";
 import { File } from "../Storage/LocalStorage";
+import PasswordModal from "../PasswordModal/PasswordModal";
+import CryptoJS from "crypto-js";
 
 interface FileSelection {
     [key: string]: boolean;
@@ -37,6 +39,10 @@ const Cloud: React.FC<{
     const [dropboxFiles, setDropboxFiles] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
+    const [s3PasswordProtected, setS3PasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [dropboxPasswordProtected, setDropboxPasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [postgresPasswordProtected, setPostgresPasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [firebasePasswordProtected, setFirebasePasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -50,13 +56,33 @@ const Cloud: React.FC<{
     const [showMoveAlert, setShowMoveAlert] = useState(false);
     const [moveOperation, setMoveOperation] = useState<'toLocal' | 'toServer' | null>(null);
     const [conflictFiles, setConflictFiles] = useState<string[]>([]);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [currentPasswordFile, setCurrentPasswordFile] = useState<string>('');
+    const [passwordError, setPasswordError] = useState<string>('');
+    const [encryptedContent, setEncryptedContent] = useState<string>('');
 
     // Load files from S3 via API
     const loadFilesFromS3 = async () => {
         setLoading(true);
         try {
             const response = await ApiService.listAllS3();
-            setS3Files(response.files || {});
+
+            // Merge regular files and password-protected files
+            const allFiles = { ...(response.files || {}) };
+            const passwordProtectedMap: { [key: string]: boolean } = {};
+
+            if (response.passwordProtectedFiles) {
+                Object.keys(response.passwordProtectedFiles).forEach(fileName => {
+                    // Add password-protected files to the main files list if they don't exist
+                    if (!allFiles[fileName]) {
+                        allFiles[fileName] = new Date(response.passwordProtectedFiles[fileName]).getTime();
+                    }
+                    passwordProtectedMap[fileName] = true;
+                });
+            }
+
+            setS3Files(allFiles);
+            setS3PasswordProtected(passwordProtectedMap);
         } catch (err) {
             console.error('Failed to load files from S3', err);
             if (err.response?.status === 401) {
@@ -74,7 +100,23 @@ const Cloud: React.FC<{
         setLoading(true);
         try {
             const response = await ApiService.listAllDropbox();
-            setDropboxFiles(response.dropboxFiles || {});
+
+            // Merge regular files and password-protected files
+            const allFiles = { ...(response.files || {}) };
+            const passwordProtectedMap: { [key: string]: boolean } = {};
+
+            if (response.passwordProtectedFiles) {
+                Object.keys(response.passwordProtectedFiles).forEach(fileName => {
+                    // Add password-protected files to the main files list if they don't exist
+                    if (!allFiles[fileName]) {
+                        allFiles[fileName] = new Date(response.passwordProtectedFiles[fileName]).getTime();
+                    }
+                    passwordProtectedMap[fileName] = true;
+                });
+            }
+
+            setDropboxFiles(allFiles);
+            setDropboxPasswordProtected(passwordProtectedMap);
         } catch (err) {
             console.error('Failed to load files from Dropbox', err);
             if (err.response?.status === 401) {
@@ -92,7 +134,23 @@ const Cloud: React.FC<{
         setLoading(true);
         try {
             const response = await ApiService.listAllPostgres();
-            setPostgresFiles(response.files || {});
+
+            // Merge regular files and password-protected files
+            const allFiles = { ...(response.files || {}) };
+            const passwordProtectedMap: { [key: string]: boolean } = {};
+
+            if (response.passwordProtectedFiles) {
+                Object.keys(response.passwordProtectedFiles).forEach(fileName => {
+                    // Add password-protected files to the main files list if they don't exist
+                    if (!allFiles[fileName]) {
+                        allFiles[fileName] = new Date(response.passwordProtectedFiles[fileName]).getTime();
+                    }
+                    passwordProtectedMap[fileName] = true;
+                });
+            }
+
+            setPostgresFiles(allFiles);
+            setPostgresPasswordProtected(passwordProtectedMap);
         } catch (err) {
             console.error('Failed to load files from PostgreSQL', err);
             if (err.response?.status === 401) {
@@ -110,7 +168,23 @@ const Cloud: React.FC<{
         setLoading(true);
         try {
             const response = await ApiService.listAllFirebase();
-            setFirebaseFiles(response.files || {});
+
+            // Merge regular files and password-protected files
+            const allFiles = { ...(response.files || {}) };
+            const passwordProtectedMap: { [key: string]: boolean } = {};
+
+            if (response.passwordProtectedFiles) {
+                Object.keys(response.passwordProtectedFiles).forEach(fileName => {
+                    // Add password-protected files to the main files list if they don't exist
+                    if (!allFiles[fileName]) {
+                        allFiles[fileName] = new Date(response.passwordProtectedFiles[fileName]).getTime();
+                    }
+                    passwordProtectedMap[fileName] = true;
+                });
+            }
+
+            setFirebaseFiles(allFiles);
+            setFirebasePasswordProtected(passwordProtectedMap);
         } catch (err) {
             console.error('Failed to load files from Firebase', err);
             if (err.response?.status === 401) {
@@ -321,43 +395,56 @@ const Cloud: React.FC<{
         setLoading(true);
         try {
             let fileData = null;
+            const isPasswordProtected = isFilePasswordProtected(key);
             switch (activeTab) {
                 case 's3':
-                    fileData = await getFileFromS3(key);
+                    fileData = await getFileFromS3(key, isPasswordProtected);
                     break;
                 case 'dropbox':
-                    fileData = await getFileFromDropbox(key);
+                    fileData = await getFileFromDropbox(key, isPasswordProtected);
                     break;
                 case 'postgres':
-                    fileData = await getFileFromPostgres(key);
+                    fileData = await getFileFromPostgres(key, isPasswordProtected);
                     break;
                 case 'firebase':
-                    fileData = await getFileFromFirebase(key);
+                    fileData = await getFileFromFirebase(key, isPasswordProtected);
                     break;
             }
 
             if (fileData && fileData.content) {
-                AppGeneral.viewFile(key, fileData.content);
-                props.updateSelectedFile(key);
-
-                setShowModal(false);
+                if (isPasswordProtected) {
+                    // For password-protected files, close cloud modal first, then show password modal
+                    setShowModal(false);
+                    setCurrentPasswordFile(key);
+                    setEncryptedContent(fileData.content);
+                    setPasswordError('');
+                    setShowPasswordModal(true);
+                    setLoading(false);
+                } else {
+                    // For regular files, open directly
+                    AppGeneral.viewFile(key, fileData.content);
+                    props.updateSelectedFile(key);
+                    setShowModal(false);
+                    setLoading(false);
+                }
             } else {
                 setToastMessage('Failed to load file');
                 setShowToast(true);
+                setLoading(false);
             }
         } catch (err) {
             console.error('Error loading file:', err);
             setToastMessage('Failed to load file');
             setShowToast(true);
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     // Get file from S3 via API
-    const getFileFromS3 = async (key: string) => {
+    const getFileFromS3 = async (key: string, isPasswordProtected: boolean = false) => {
         try {
             console.log("Getting file from S3 via API:", key);
-            const response = await ApiService.getFileS3(key);
+            const response = await ApiService.getFileS3(key, isPasswordProtected);
             console.log("S3 API response:", response);
 
             // Check if we have content in the response
@@ -383,12 +470,12 @@ const Cloud: React.FC<{
             }
 
             console.log("Successfully extracted content, length:", content.length);
-            content = JSON.parse(content);
-            console.log("content: ", content);
 
+            // The new API format returns content directly (not wrapped in JSON)
+            // For password-protected files, content is encrypted and should not be parsed as JSON
             return {
-                content: content.content,
-                isPasswordProtected: content.isPasswordProtected,
+                content: content,
+                isPasswordProtected: isPasswordProtected,
                 modified: s3Files[key] || Date.now(),
                 created: s3Files[key] || Date.now()
             };
@@ -406,10 +493,10 @@ const Cloud: React.FC<{
     };
 
     // Get file from Dropbox via API
-    const getFileFromDropbox = async (fileName: string) => {
+    const getFileFromDropbox = async (fileName: string, isPasswordProtected: boolean = false) => {
         try {
             console.log("Getting file from Dropbox via API:", fileName);
-            const response = await ApiService.getFileDropbox(fileName);
+            const response = await ApiService.getFileDropbox(fileName, isPasswordProtected);
             console.log("Dropbox API response:", response);
 
             // Check if we have content in the response
@@ -436,25 +523,10 @@ const Cloud: React.FC<{
 
             console.log("Successfully extracted content, length:", content.length);
 
-            // Parse content to check for password protection (similar to S3)
-            let parsedContent = content;
-            let isPasswordProtected = false;
-
-            try {
-                // Try to parse as JSON to check if it has metadata
-                const contentObj = JSON.parse(content);
-                if (contentObj && typeof contentObj === 'object' && contentObj.content !== undefined) {
-                    parsedContent = contentObj.content;
-                    isPasswordProtected = contentObj.isPasswordProtected || false;
-                }
-            } catch (parseError) {
-                // If parsing fails, treat as plain content
-                parsedContent = content;
-                isPasswordProtected = false;
-            }
-
+            // The new API format returns content directly (not wrapped in JSON)
+            // For password-protected files, content is encrypted and should not be parsed as JSON
             return {
-                content: parsedContent,
+                content: content,
                 isPasswordProtected: isPasswordProtected,
                 modified: dropboxFiles[fileName] || Date.now(),
                 created: dropboxFiles[fileName] || Date.now()
@@ -476,10 +548,10 @@ const Cloud: React.FC<{
     };
 
     // Get file from PostgreSQL via API
-    const getFileFromPostgres = async (fileName: string) => {
+    const getFileFromPostgres = async (fileName: string, isPasswordProtected: boolean = false) => {
         try {
             console.log("Getting file from PostgreSQL via API:", fileName);
-            const response = await ApiService.getFilePostgres(fileName);
+            const response = await ApiService.getFilePostgres(fileName, isPasswordProtected);
             console.log("PostgreSQL API response:", response);
 
             if (!response) {
@@ -503,12 +575,12 @@ const Cloud: React.FC<{
             }
 
             console.log("Successfully extracted content, length:", content.length);
-            content = JSON.parse(content);
-            console.log("content: ", content);
 
+            // The new API format returns content directly (not wrapped in JSON)
+            // For password-protected files, content is encrypted and should not be parsed as JSON
             return {
-                content: content.content,
-                isPasswordProtected: content.isPasswordProtected,
+                content: content,
+                isPasswordProtected: isPasswordProtected,
                 modified: postgresFiles[fileName] || Date.now(),
                 created: postgresFiles[fileName] || Date.now()
             };
@@ -526,10 +598,10 @@ const Cloud: React.FC<{
     };
 
     // Get file from Firebase via API
-    const getFileFromFirebase = async (fileName: string) => {
+    const getFileFromFirebase = async (fileName: string, isPasswordProtected: boolean = false) => {
         try {
             console.log("Getting file from Firebase via API:", fileName);
-            const response = await ApiService.getFileFirebase(fileName);
+            const response = await ApiService.getFileFirebase(fileName, isPasswordProtected);
             console.log("Firebase API response:", response);
 
             if (!response) {
@@ -553,12 +625,12 @@ const Cloud: React.FC<{
             }
 
             console.log("Successfully extracted content, length:", content.length);
-            content = JSON.parse(content);
-            console.log("content: ", content);
 
+            // The new API format returns content directly (not wrapped in JSON)
+            // For password-protected files, content is encrypted and should not be parsed as JSON
             return {
-                content: content.content,
-                isPasswordProtected: content.isPasswordProtected,
+                content: content,
+                isPasswordProtected: isPasswordProtected,
                 modified: firebaseFiles[fileName] || Date.now(),
                 created: firebaseFiles[fileName] || Date.now()
             };
@@ -603,18 +675,19 @@ const Cloud: React.FC<{
 
         setLoading(true);
         let success = false;
+        const isPasswordProtected = isFilePasswordProtected(currentKey);
         switch (activeTab) {
             case 's3':
-                success = await deleteFileFromS3(currentKey);
+                success = await deleteFileFromS3(currentKey, isPasswordProtected);
                 break;
             case 'dropbox':
-                success = await deleteFileFromDropbox(currentKey);
+                success = await deleteFileFromDropbox(currentKey, isPasswordProtected);
                 break;
             case 'postgres':
-                success = await deleteFileFromPostgres(currentKey);
+                success = await deleteFileFromPostgres(currentKey, isPasswordProtected);
                 break;
             case 'firebase':
-                success = await deleteFileFromFirebase(currentKey);
+                success = await deleteFileFromFirebase(currentKey, isPasswordProtected);
                 break;
         }
 
@@ -632,9 +705,9 @@ const Cloud: React.FC<{
     };
 
     // Delete from S3 via API
-    const deleteFileFromS3 = async (key: string): Promise<boolean> => {
+    const deleteFileFromS3 = async (key: string, isPasswordProtected: boolean = false): Promise<boolean> => {
         try {
-            await ApiService.deleteFileS3(key);
+            await ApiService.deleteFileS3(key, isPasswordProtected);
             await loadFilesFromS3();
             return true;
         } catch (err) {
@@ -652,9 +725,9 @@ const Cloud: React.FC<{
     };
 
     // Delete from Dropbox via API
-    const deleteFileFromDropbox = async (fileName: string): Promise<boolean> => {
+    const deleteFileFromDropbox = async (fileName: string, isPasswordProtected: boolean = false): Promise<boolean> => {
         try {
-            await ApiService.deleteFileDropbox(fileName);
+            await ApiService.deleteFileDropbox(fileName, isPasswordProtected);
             await loadFilesFromDropbox();
             return true;
         } catch (err) {
@@ -672,9 +745,9 @@ const Cloud: React.FC<{
     };
 
     // Delete from PostgreSQL via API
-    const deleteFileFromPostgres = async (fileName: string): Promise<boolean> => {
+    const deleteFileFromPostgres = async (fileName: string, isPasswordProtected: boolean = false): Promise<boolean> => {
         try {
-            await ApiService.deleteFilePostgres(fileName);
+            await ApiService.deleteFilePostgres(fileName, isPasswordProtected);
             await loadFilesFromPostgres();
             return true;
         } catch (err) {
@@ -692,9 +765,9 @@ const Cloud: React.FC<{
     };
 
     // Delete from Firebase via API
-    const deleteFileFromFirebase = async (fileName: string): Promise<boolean> => {
+    const deleteFileFromFirebase = async (fileName: string, isPasswordProtected: boolean = false): Promise<boolean> => {
         try {
-            await ApiService.deleteFileFirebase(fileName);
+            await ApiService.deleteFileFirebase(fileName, isPasswordProtected);
             await loadFilesFromFirebase();
             return true;
         } catch (err) {
@@ -719,6 +792,95 @@ const Cloud: React.FC<{
 
     const _formatDate = (timestamp: number) => {
         return new Date(timestamp).toLocaleString();
+    };
+
+    // Helper function to check if file is password protected
+    const isFilePasswordProtected = (fileName: string): boolean => {
+        switch (activeTab) {
+            case 's3':
+                return s3PasswordProtected[fileName] || false;
+            case 'dropbox':
+                return dropboxPasswordProtected[fileName] || false;
+            case 'postgres':
+                return postgresPasswordProtected[fileName] || false;
+            case 'firebase':
+                return firebasePasswordProtected[fileName] || false;
+            default:
+                return false;
+        }
+    };
+
+    // Function to decrypt file content with password (matching LocalStorage logic)
+    const decryptFileContent = (encryptedContent: string, password: string): string | null => {
+        try {
+            console.log("Attempting to decrypt content with provided password");
+
+            // Handle both old format (with "Protected_" prefix) and new format (direct encrypted content)
+            let actualEncryptedContent = encryptedContent;
+            if (encryptedContent.startsWith('Protected_')) {
+                // Old format - remove "Protected_" prefix
+                actualEncryptedContent = encryptedContent.substring(10);
+            }
+
+            const decrypted = CryptoJS.AES.decrypt(actualEncryptedContent, password);
+            const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
+
+            if (!decryptedString || decryptedString.trim() === '') {
+                console.log("Decryption failed - empty result");
+                return null;
+            }
+
+            console.log("Successfully decrypted content, length:", decryptedString.length);
+            return decryptedString;
+        } catch (error) {
+            console.log("Decryption error:", error);
+            return null;
+        }
+    };
+
+    // Handle password submission for encrypted files
+    const handlePasswordSubmit = async (name: string, password: string): Promise<boolean> => {
+        if (!encryptedContent || !currentPasswordFile) {
+            setPasswordError('Missing file data');
+            return false;
+        }
+
+        const decryptedContent = decryptFileContent(encryptedContent, password);
+
+        if (decryptedContent) {
+            // Password is correct, proceed with editing
+            setPasswordError('');
+
+            try {
+                // Use decodeURIComponent like in Files component
+                AppGeneral.viewFile(currentPasswordFile, decodeURIComponent(decryptedContent));
+                props.updateSelectedFile(currentPasswordFile);
+                setToastMessage('File opened successfully');
+                setShowToast(true);
+
+                // Reset states
+                setCurrentPasswordFile('');
+                setEncryptedContent('');
+                return true;
+            } catch (error) {
+                console.error('Error opening decrypted file:', error);
+                setToastMessage('Failed to open file');
+                setShowToast(true);
+                return false;
+            }
+        } else {
+            // Password is incorrect
+            setPasswordError('Incorrect password or corrupted file. Please try again.');
+            return false;
+        }
+    };
+
+    // Handle password modal cancellation
+    const handlePasswordClose = () => {
+        setShowPasswordModal(false);
+        setPasswordError('');
+        setCurrentPasswordFile('');
+        setEncryptedContent('');
     };
 
     // File selection helper functions
@@ -939,18 +1101,19 @@ const Cloud: React.FC<{
     const downloadAndSaveFile = async (filename: string): Promise<boolean> => {
         try {
             let fileData = null;
+            const isPasswordProtected = isFilePasswordProtected(filename);
             switch (activeTab) {
                 case 's3':
-                    fileData = await getFileFromS3(filename);
+                    fileData = await getFileFromS3(filename, isPasswordProtected);
                     break;
                 case 'dropbox':
-                    fileData = await getFileFromDropbox(filename);
+                    fileData = await getFileFromDropbox(filename, isPasswordProtected);
                     break;
                 case 'postgres':
-                    fileData = await getFileFromPostgres(filename);
+                    fileData = await getFileFromPostgres(filename, isPasswordProtected);
                     break;
                 case 'firebase':
-                    fileData = await getFileFromFirebase(filename);
+                    fileData = await getFileFromFirebase(filename, isPasswordProtected);
                     break;
             }
 
@@ -1149,7 +1312,16 @@ const Cloud: React.FC<{
                                                 className="file-checkbox"
                                             />
                                             <div className="file-info">
-                                                <div className="file-name">{key}</div>
+                                                <div className="file-name">
+                                                    {key}
+                                                    {isFilePasswordProtected(key) && (
+                                                        <IonIcon
+                                                            icon={shield}
+                                                            className="password-shield-icon"
+                                                            title="Password Protected"
+                                                        />
+                                                    )}
+                                                </div>
                                                 <div className="file-date">
                                                     {_formatDate(files[key])}
                                                 </div>
@@ -1278,6 +1450,16 @@ const Cloud: React.FC<{
             <IonLoading
                 isOpen={loading}
                 message="Processing..."
+            />
+
+            <PasswordModal
+                isOpen={showPasswordModal}
+                onSubmit={handlePasswordSubmit}
+                onClose={handlePasswordClose}
+                title="Enter Password"
+                submitText="Decrypt File"
+                showNameField={false}
+                passwordError={passwordError}
             />
         </React.Fragment>
     );
