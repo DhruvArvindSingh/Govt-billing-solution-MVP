@@ -24,7 +24,7 @@ RUN npm install --legacy-peer-deps
 COPY . .
 
 # Make ec2.sh executable
-RUN chmod +x ec2.sh
+RUN chmod +x docker.sh
 
 # Expose port 8080 (as used in ec2.sh)
 EXPOSE 8080
