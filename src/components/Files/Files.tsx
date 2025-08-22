@@ -26,7 +26,7 @@ import {
 } from "@ionic/react";
 import { fileTrayFull, trash, create, shield, cloudUpload } from "ionicons/icons";
 import PasswordModal from "../PasswordModal/PasswordModal";
-import ApiService from "../service/Apiservice";
+import ApiService, { DatabaseType } from "../service/Apiservice";
 
 const Files: React.FC<{
   store: Local;
@@ -198,21 +198,8 @@ const Files: React.FC<{
           const content = decodeURIComponent(fileData.content);
           const isPasswordProtected = fileData.isPasswordProtected || false;
 
-          // Call appropriate upload function based on selected database
-          switch (selectedDatabase) {
-            case 's3':
-              await ApiService.uploadFileS3(fileName, content, isPasswordProtected);
-              break;
-            case 'dropbox':
-              await ApiService.uploadFileDropbox(fileName, content, isPasswordProtected);
-              break;
-            case 'postgres':
-              await ApiService.uploadFilePostgres(fileName, content, isPasswordProtected);
-              break;
-            case 'firebase':
-              await ApiService.uploadFileFirebase(fileName, content, isPasswordProtected);
-              break;
-          }
+          // Call unified upload function with the selected database
+          await ApiService.uploadFile(selectedDatabase as DatabaseType, fileName, content, isPasswordProtected);
           successCount++;
         } catch (error) {
           console.error(`Error uploading ${fileName} to ${databaseName}:`, error);
@@ -263,7 +250,7 @@ const Files: React.FC<{
     const files = await props.store._getAllFiles();
 
     // Filter files based on search text
-    const filteredFileKeys = Object.keys(files).filter(key =>
+    const filteredFileKeys = Object.keys(files || {}).filter(key =>
       key.toLowerCase().includes(searchText.toLowerCase())
     );
 

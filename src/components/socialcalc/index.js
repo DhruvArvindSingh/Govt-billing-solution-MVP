@@ -87,8 +87,31 @@ export function activateFooterButton(index) {
   SocialCalc.oldBtnActive = index;
 }
 
+// Helper function to decode URL-encoded content if needed
+export function decodeFileContent(content) {
+  if (!content || typeof content !== 'string') {
+    return content;
+  }
+
+  try {
+    // Check if content is URL-encoded by trying to decode it
+    const decoded = decodeURIComponent(content);
+    // If decoding succeeds and it looks like JSON, use the decoded version
+    if (decoded !== content && (decoded.startsWith('{') || decoded.startsWith('['))) {
+      return decoded;
+    }
+  } catch (error) {
+    // If decoding fails, use original content
+    console.log("Content not URL-encoded, using as-is");
+  }
+
+  return content;
+}
+
 export function viewFile(filename, data) {
-  SocialCalc.WorkBookControlInsertWorkbook(data);
+  // Ensure data is properly decoded before passing to SocialCalc
+  const decodedData = decodeFileContent(data);
+  SocialCalc.WorkBookControlInsertWorkbook(decodedData);
 
   SocialCalc.GetCurrentWorkBookControl().workbook.spreadsheet.editor.state =
     "start";

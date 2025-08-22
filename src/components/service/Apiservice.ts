@@ -64,6 +64,9 @@ interface AuthResponse {
     error?: string;
 }
 
+// Database type for unified functions
+type DatabaseType = 's3' | 'dropbox' | 'postgres' | 'firebase';
+
 // Create axios instance with default config
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -129,405 +132,6 @@ class ApiService {
     private static handleApiError(error: any, operation: string): never {
         console.error(`Failed to ${operation}:`, error);
         throw error;
-    }
-
-    // S3 Operations
-    static async listAllS3(): Promise<FileListResponse> {
-        try {
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post<FileListResponse>('/api/v1/listAllS3', { token });
-            console.log('S3 API response:', response);
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'list S3 files');
-        }
-    }
-
-    static async getFileS3(fileName: string, isPasswordProtected: boolean = false): Promise<FileContent> {
-        try {
-            console.log('Requesting S3 file:', fileName);
-
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post('/api/v1/getFileS3', { fileName, isPasswordProtected, token });
-
-            console.log('Raw S3 API response:', response);
-            console.log('Response data:', response.data);
-            console.log('Response data type:', typeof response.data);
-            console.log('Response data keys:', Object.keys(response.data || {}));
-
-            const responseData = this.handleApiResponse(response);
-            console.log('responseData:', responseData);
-
-            // Handle the new API response format
-            if (responseData && typeof responseData === 'object' && 'content' in responseData) {
-                // New format: { success, message, fileName, isPasswordProtected, content, lastModified, contentType }
-                return {
-                    content: responseData.content,
-                    fileName: responseData.fileName || fileName
-                };
-            } else if (typeof responseData === 'string') {
-                // If response is directly a string, treat it as content
-                return { content: responseData, fileName };
-            } else {
-                console.error('Unexpected response structure:', responseData);
-                throw new Error('Invalid response format from S3 API');
-            }
-        } catch (error) {
-            console.error('Error response:', error.response?.data);
-            this.handleApiError(error, 'get S3 file');
-        }
-    }
-
-    static async uploadFileS3(fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            if (typeof content !== 'string') {
-                throw new Error('Invalid content provided - must be string');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileS3', {
-                fileName,
-                fileContent: content,
-                isPasswordProtected,
-                token
-            });
-
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'upload S3 file');
-        }
-    }
-
-    static async deleteFileS3(fileName: string, isPasswordProtected: boolean = false): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/deleteFileS3', { fileName, isPasswordProtected, token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'delete S3 file');
-        }
-    }
-
-    // Dropbox Operations
-    static async listAllDropbox(): Promise<FileListResponse> {
-        try {
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post<FileListResponse>('/api/v1/listAllDropbox', { token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'list Dropbox files');
-        }
-    }
-
-    static async getFileDropbox(fileName: string, isPasswordProtected: boolean = false): Promise<FileContent> {
-        try {
-            console.log('Requesting Dropbox file:', fileName);
-
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post('/api/v1/getFileDropbox', { fileName, isPasswordProtected, token });
-
-            console.log('Raw Dropbox API response:', response);
-            console.log('Response data:', response.data);
-            console.log('Response data type:', typeof response.data);
-            console.log('Response data keys:', Object.keys(response.data || {}));
-
-
-            const responseData = this.handleApiResponse(response);
-
-            // Handle the new API response format
-            if (responseData && typeof responseData === 'object' && 'content' in responseData) {
-                // New format: { success, message, fileName, isPasswordProtected, content, lastModified, contentType }
-                return {
-                    content: responseData.content,
-                    fileName: responseData.fileName || fileName
-                };
-            } else if (typeof responseData === 'string') {
-                // If response is directly a string, treat it as content
-                return { content: responseData, fileName };
-            } else {
-                console.error('Unexpected response structure:', responseData);
-                throw new Error('Invalid response format from Dropbox API');
-            }
-        } catch (error) {
-            console.error('Error response:', error.response?.data);
-            this.handleApiError(error, 'get Dropbox file');
-        }
-    }
-
-    static async uploadFileDropbox(fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            if (typeof content !== 'string') {
-                throw new Error('Invalid content provided - must be string');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileDropbox', {
-                fileName,
-                fileContent: content,
-                isPasswordProtected,
-                token
-            });
-
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'upload Dropbox file');
-        }
-    }
-
-    static async deleteFileDropbox(fileName: string, isPasswordProtected: boolean = false): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/deleteFileDropbox', { fileName, isPasswordProtected, token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'delete Dropbox file');
-        }
-    }
-
-    // PostgreSQL Operations
-    static async listAllPostgres(): Promise<FileListResponse> {
-        try {
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post<FileListResponse>('/api/v1/listAllPostgres', { token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'list PostgreSQL files');
-        }
-    }
-
-    static async getFilePostgres(fileName: string, isPasswordProtected: boolean = false): Promise<FileContent> {
-        try {
-            console.log('Requesting PostgreSQL file:', fileName);
-
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post('/api/v1/getFilePostgres', { fileName, isPasswordProtected, token });
-
-            console.log('Raw PostgreSQL API response:', response);
-            console.log('Response data:', response.data);
-            console.log('Response data type:', typeof response.data);
-            console.log('Response data keys:', Object.keys(response.data || {}));
-
-            const responseData = this.handleApiResponse(response);
-
-            // Handle the new API response format
-            if (responseData && typeof responseData === 'object' && 'content' in responseData) {
-                // New format: { success, message, fileName, isPasswordProtected, content, lastModified, contentType }
-                return {
-                    content: responseData.content,
-                    fileName: responseData.fileName || fileName
-                };
-            } else if (typeof responseData === 'string') {
-                // If response is directly a string, treat it as content
-                return { content: responseData, fileName };
-            }
-        } catch (error) {
-            console.error('Error response:', error.response?.data);
-            this.handleApiError(error, 'get PostgreSQL file');
-        }
-    }
-
-    static async uploadFilePostgres(fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            if (typeof content !== 'string') {
-                throw new Error('Invalid content provided - must be string');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFilePostgres', {
-                fileName,
-                fileContent: content,
-                isPasswordProtected,
-                token
-            });
-
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'upload PostgreSQL file');
-        }
-    }
-
-    static async deleteFilePostgres(fileName: string, isPasswordProtected: boolean = false): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/deleteFilePostgres', { fileName, isPasswordProtected, token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'delete PostgreSQL file');
-        }
-    }
-
-    // Firebase Operations
-    static async listAllFirebase(): Promise<FileListResponse> {
-        try {
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post<FileListResponse>('/api/v1/listAllFirebase', { token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'list Firebase files');
-        }
-    }
-
-    static async getFileFirebase(fileName: string, isPasswordProtected: boolean = false): Promise<FileContent> {
-        try {
-            console.log('Requesting Firebase file:', fileName);
-
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-            const response = await apiClient.post('/api/v1/getFileFirebase', { fileName, isPasswordProtected, token });
-
-            console.log('Raw Firebase API response:', response);
-            console.log('Response data:', response.data);
-            console.log('Response data type:', typeof response.data);
-            console.log('Response data keys:', Object.keys(response.data || {}));
-
-            const responseData = this.handleApiResponse(response);
-
-            // Handle the new API response format
-            if (responseData && typeof responseData === 'object' && 'content' in responseData) {
-                // New format: { success, message, fileName, isPasswordProtected, content, lastModified, contentType }
-                return {
-                    content: responseData.content,
-                    fileName: responseData.fileName || fileName
-                };
-            } else if (typeof responseData === 'string') {
-                // If response is directly a string, treat it as content
-                return { content: responseData, fileName };
-            } else {
-                throw new Error('Invalid response format from Firebase API');
-            }
-        } catch (error) {
-            console.error('Error response:', error.response?.data);
-            this.handleApiError(error, 'get Firebase file');
-        }
-    }
-
-    static async uploadFileFirebase(fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            if (typeof content !== 'string') {
-                throw new Error('Invalid content provided - must be string');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileFirebase', {
-                fileName,
-                fileContent: content,
-                isPasswordProtected,
-                token
-            });
-
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'upload Firebase file');
-        }
-    }
-
-    static async deleteFileFirebase(fileName: string, isPasswordProtected: boolean = false): Promise<ApiResponse> {
-        try {
-            if (!fileName || typeof fileName !== 'string') {
-                throw new Error('Invalid fileName provided');
-            }
-
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Please login to continue');
-            }
-
-            const response = await apiClient.post<ApiResponse>('/api/v1/deleteFileFirebase', { fileName, isPasswordProtected, token });
-            return this.handleApiResponse(response);
-        } catch (error) {
-            this.handleApiError(error, 'delete Firebase file');
-        }
     }
 
     // Authentication Operations
@@ -649,6 +253,211 @@ class ApiService {
             this.handleApiError(error, 'upload logo');
         }
     }
+
+    // ============================================
+    // UNIFIED DATABASE OPERATIONS
+    // ============================================
+
+    /**
+     * Unified function to list all files from any database
+     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @returns Promise<FileListResponse>
+     */
+    static async listAllFiles(database: DatabaseType): Promise<FileListResponse> {
+        try {
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            let endpoint: string;
+            switch (database) {
+                case 's3':
+                    endpoint = '/api/v1/listAllS3';
+                    break;
+                case 'dropbox':
+                    endpoint = '/api/v1/listAllDropbox';
+                    break;
+                case 'postgres':
+                    endpoint = '/api/v1/listAllPostgres';
+                    break;
+                case 'firebase':
+                    endpoint = '/api/v1/listAllFirebase';
+                    break;
+                default:
+                    throw new Error(`Unsupported database type: ${database}`);
+            }
+
+            const response = await apiClient.post<FileListResponse>(endpoint, { token });
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, `list ${database} files`);
+        }
+    }
+
+    /**
+     * Unified function to get a file from any database
+     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param fileName - Name of the file to retrieve
+     * @param isPasswordProtected - Whether the file is password protected
+     * @returns Promise<FileContent>
+     */
+    static async getFile(database: DatabaseType, fileName: string, isPasswordProtected: boolean = false): Promise<FileContent> {
+        try {
+            console.log(`Requesting ${database} file:`, fileName);
+
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            let endpoint: string;
+            switch (database) {
+                case 's3':
+                    endpoint = '/api/v1/getFileS3';
+                    break;
+                case 'dropbox':
+                    endpoint = '/api/v1/getFileDropbox';
+                    break;
+                case 'postgres':
+                    endpoint = '/api/v1/getFilePostgres';
+                    break;
+                case 'firebase':
+                    endpoint = '/api/v1/getFileFirebase';
+                    break;
+                default:
+                    throw new Error(`Unsupported database type: ${database}`);
+            }
+
+            const response = await apiClient.post(endpoint, { fileName, isPasswordProtected, token });
+
+            console.log(`Raw ${database} API response:`, response);
+            console.log('Response data:', response.data);
+            console.log('Response data type:', typeof response.data);
+            console.log('Response data keys:', Object.keys(response.data || {}));
+
+            const responseData = this.handleApiResponse(response);
+
+            // Handle the new API response format
+            if (responseData && typeof responseData === 'object' && 'content' in responseData) {
+                // New format: { success, message, fileName, isPasswordProtected, content, lastModified, contentType }
+                return {
+                    content: responseData.content,
+                    fileName: responseData.fileName || fileName
+                };
+            } else if (typeof responseData === 'string') {
+                // If response is directly a string, treat it as content
+                return { content: responseData, fileName };
+            } else {
+                console.error('Unexpected response structure:', responseData);
+                throw new Error(`Invalid response format from ${database} API`);
+            }
+        } catch (error) {
+            console.error('Error response:', error.response?.data);
+            this.handleApiError(error, `get ${database} file`);
+        }
+    }
+
+    /**
+     * Unified function to upload a file to any database
+     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param fileName - Name of the file to upload
+     * @param content - Content of the file
+     * @param isPasswordProtected - Whether the file is password protected
+     * @returns Promise<ApiResponse>
+     */
+    static async uploadFile(database: DatabaseType, fileName: string, content: string, isPasswordProtected: boolean): Promise<ApiResponse> {
+        try {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            if (typeof content !== 'string') {
+                throw new Error('Invalid content provided - must be string');
+            }
+
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            let endpoint: string;
+            switch (database) {
+                case 's3':
+                    endpoint = '/api/v1/uploadFileS3';
+                    break;
+                case 'dropbox':
+                    endpoint = '/api/v1/uploadFileDropbox';
+                    break;
+                case 'postgres':
+                    endpoint = '/api/v1/uploadFilePostgres';
+                    break;
+                case 'firebase':
+                    endpoint = '/api/v1/uploadFileFirebase';
+                    break;
+                default:
+                    throw new Error(`Unsupported database type: ${database}`);
+            }
+
+            const response = await apiClient.post<ApiResponse>(endpoint, {
+                fileName,
+                fileContent: content,
+                isPasswordProtected,
+                token
+            });
+
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, `upload ${database} file`);
+        }
+    }
+
+    /**
+     * Unified function to delete a file from any database
+     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param fileName - Name of the file to delete
+     * @param isPasswordProtected - Whether the file is password protected
+     * @returns Promise<ApiResponse>
+     */
+    static async deleteFile(database: DatabaseType, fileName: string, isPasswordProtected: boolean = false): Promise<ApiResponse> {
+        try {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            let endpoint: string;
+            switch (database) {
+                case 's3':
+                    endpoint = '/api/v1/deleteFileS3';
+                    break;
+                case 'dropbox':
+                    endpoint = '/api/v1/deleteFileDropbox';
+                    break;
+                case 'postgres':
+                    endpoint = '/api/v1/deleteFilePostgres';
+                    break;
+                case 'firebase':
+                    endpoint = '/api/v1/deleteFileFirebase';
+                    break;
+                default:
+                    throw new Error(`Unsupported database type: ${database}`);
+            }
+
+            const response = await apiClient.post<ApiResponse>(endpoint, { fileName, isPasswordProtected, token });
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, `delete ${database} file`);
+        }
+    }
 }
 
 export default ApiService;
+export type { DatabaseType };
