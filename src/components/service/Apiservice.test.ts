@@ -264,7 +264,7 @@ describe('ApiService', () => {
                 expect(result).toEqual(mockResponse.data)
             })
 
-            it('should successfully list files from Dropbox', async () => {
+            it('should successfully list files from Postgres', async () => {
                 const mockResponse = {
                     data: {
                         files: { 'file1.txt': 1234567890 },
@@ -275,7 +275,7 @@ describe('ApiService', () => {
                     post: vi.fn().mockResolvedValue(mockResponse)
                 })
 
-                const result = await ApiService.listAllFiles('dropbox')
+                const result = await ApiService.listAllFiles('postgres')
 
                 expect(result).toEqual(mockResponse.data)
             })

@@ -261,15 +261,15 @@ describe('Cloud', () => {
             expect(screen.getByText('Cloud Storage')).toBeInTheDocument()
         })
 
-        // Click on Dropbox tab
-        const dropboxTab = screen.getByText('📦 Dropbox')
-        fireEvent.click(dropboxTab)
+        // Click on Postgres tab
+        const postgresTab = screen.getByText('🐘 PostgreSQL')
+        fireEvent.click(postgresTab)
 
-        expect(dropboxTab).toHaveClass('active')
+        expect(postgresTab).toHaveClass('active')
 
-        // Verify API call was made for dropbox
+        // Verify API call was made for postgres
         await waitFor(() => {
-            expect(mockApiService.listAllFiles).toHaveBeenCalledWith('dropbox')
+            expect(mockApiService.listAllFiles).toHaveBeenCalledWith('postgres')
         })
     })
 

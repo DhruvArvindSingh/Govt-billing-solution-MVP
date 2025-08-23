@@ -235,8 +235,6 @@ const Files: React.FC<{
     switch (database) {
       case 's3':
         return 'S3';
-      case 'dropbox':
-        return 'Dropbox';
       case 'postgres':
         return 'PostgreSQL';
       case 'firebase':
@@ -394,7 +392,6 @@ const Files: React.FC<{
                       }}
                     >
                       <IonSelectOption value="s3">🗄️ S3</IonSelectOption>
-                      <IonSelectOption value="dropbox">📦 Dropbox</IonSelectOption>
                       <IonSelectOption value="postgres">🐘 PostgreSQL</IonSelectOption>
                       <IonSelectOption value="firebase">🔥 Firebase</IonSelectOption>
                     </IonSelect>
@@ -461,7 +458,7 @@ const Files: React.FC<{
 
   useEffect(() => {
     temp();
-  }, [listFiles, searchText, selectedFiles]);
+  }, [listFiles, searchText, selectedFiles, selectedDatabase]);
 
   return (
     <React.Fragment>

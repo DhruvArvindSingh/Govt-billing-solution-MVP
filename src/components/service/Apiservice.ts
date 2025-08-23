@@ -18,10 +18,6 @@ interface S3File {
     [fileName: string]: number; // timestamp
 }
 
-interface DropboxFile {
-    [fileName: string]: number; // timestamp
-}
-
 interface PostgresFile {
     [fileName: string]: number; // timestamp
 }
@@ -65,7 +61,7 @@ interface AuthResponse {
 }
 
 // Database type for unified functions
-type DatabaseType = 's3' | 'dropbox' | 'postgres' | 'firebase';
+type DatabaseType = 's3' | 'postgres' | 'firebase';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -275,9 +271,6 @@ class ApiService {
                 case 's3':
                     endpoint = '/api/v1/listAllS3';
                     break;
-                case 'dropbox':
-                    endpoint = '/api/v1/listAllDropbox';
-                    break;
                 case 'postgres':
                     endpoint = '/api/v1/listAllPostgres';
                     break;
@@ -318,9 +311,6 @@ class ApiService {
             switch (database) {
                 case 's3':
                     endpoint = '/api/v1/getFileS3';
-                    break;
-                case 'dropbox':
-                    endpoint = '/api/v1/getFileDropbox';
                     break;
                 case 'postgres':
                     endpoint = '/api/v1/getFilePostgres';
@@ -389,9 +379,6 @@ class ApiService {
                 case 's3':
                     endpoint = '/api/v1/uploadFileS3';
                     break;
-                case 'dropbox':
-                    endpoint = '/api/v1/uploadFileDropbox';
-                    break;
                 case 'postgres':
                     endpoint = '/api/v1/uploadFilePostgres';
                     break;
@@ -437,9 +424,6 @@ class ApiService {
             switch (database) {
                 case 's3':
                     endpoint = '/api/v1/deleteFileS3';
-                    break;
-                case 'dropbox':
-                    endpoint = '/api/v1/deleteFileDropbox';
                     break;
                 case 'postgres':
                     endpoint = '/api/v1/deleteFilePostgres';

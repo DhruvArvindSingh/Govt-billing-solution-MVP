@@ -34,13 +34,11 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'dropbox' | 'postgres' | 'firebase'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
-    const [dropboxFiles, setDropboxFiles] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
     const [s3PasswordProtected, setS3PasswordProtected] = useState<{ [key: string]: boolean }>({});
-    const [dropboxPasswordProtected, setDropboxPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [postgresPasswordProtected, setPostgresPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [firebasePasswordProtected, setFirebasePasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [searchTerm, setSearchTerm] = useState('');
@@ -87,10 +85,6 @@ const Cloud: React.FC<{
                     setS3Files(allFiles);
                     setS3PasswordProtected(passwordProtectedMap);
                     break;
-                case 'dropbox':
-                    setDropboxFiles(allFiles);
-                    setDropboxPasswordProtected(passwordProtectedMap);
-                    break;
                 case 'postgres':
                     setPostgresFiles(allFiles);
                     setPostgresPasswordProtected(passwordProtectedMap);
@@ -114,7 +108,6 @@ const Cloud: React.FC<{
 
     // Individual load functions for backward compatibility (calling the unified function)
     const loadFilesFromS3 = () => loadFilesFromDatabase('s3');
-    const loadFilesFromDropbox = () => loadFilesFromDatabase('dropbox');
     const loadFilesFromPostgres = () => loadFilesFromDatabase('postgres');
     const loadFilesFromFirebase = () => loadFilesFromDatabase('firebase');
 
@@ -131,12 +124,10 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'dropbox' | 'postgres' | 'firebase') => {
+    const switchTab = async (tab: 's3' | 'postgres' | 'firebase') => {
         setActiveTab(tab);
         if (tab === 's3' && Object.keys(s3Files).length === 0) {
             await loadFilesFromS3();
-        } else if (tab === 'dropbox' && Object.keys(dropboxFiles).length === 0) {
-            await loadFilesFromDropbox();
         } else if (tab === 'postgres' && Object.keys(postgresFiles).length === 0) {
             await loadFilesFromPostgres();
         } else if (tab === 'firebase' && Object.keys(firebaseFiles).length === 0) {
@@ -149,8 +140,6 @@ const Cloud: React.FC<{
         switch (activeTab) {
             case 's3':
                 return s3Files;
-            case 'dropbox':
-                return dropboxFiles;
             case 'postgres':
                 return postgresFiles;
             case 'firebase':
@@ -194,9 +183,6 @@ const Cloud: React.FC<{
                 case 's3':
                     success = await saveFileToS3(fullFileName, currentData, isPasswordProtected);
                     break;
-                case 'dropbox':
-                    success = await saveFileToDropbox(fullFileName, currentData, isPasswordProtected);
-                    break;
                 case 'postgres':
                     success = await saveFileToPostgres(fullFileName, currentData, isPasswordProtected);
                     break;
@@ -210,9 +196,6 @@ const Cloud: React.FC<{
                 switch (activeTab) {
                     case 's3':
                         provider = 'S3';
-                        break;
-                    case 'dropbox':
-                        provider = 'Dropbox';
                         break;
                     case 'postgres':
                         provider = 'PostgreSQL';
@@ -257,8 +240,6 @@ const Cloud: React.FC<{
     // Individual save functions for backward compatibility (calling the unified function)
     const saveFileToS3 = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
         saveFileToDatabase('s3', fileName, content, isPasswordProtected);
-    const saveFileToDropbox = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
-        saveFileToDatabase('dropbox', fileName, content, isPasswordProtected);
     const saveFileToPostgres = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
         saveFileToDatabase('postgres', fileName, content, isPasswordProtected);
     const saveFileToFirebase = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
@@ -338,9 +319,6 @@ const Cloud: React.FC<{
                 case 's3':
                     filesObject = s3Files;
                     break;
-                case 'dropbox':
-                    filesObject = dropboxFiles;
-                    break;
                 case 'postgres':
                     filesObject = postgresFiles;
                     break;
@@ -378,8 +356,6 @@ const Cloud: React.FC<{
     // Individual get functions for backward compatibility (calling the unified function)
     const getFileFromS3 = (key: string, isPasswordProtected: boolean = false) =>
         getFileFromDatabase('s3', key, isPasswordProtected);
-    const getFileFromDropbox = (fileName: string, isPasswordProtected: boolean = false) =>
-        getFileFromDatabase('dropbox', fileName, isPasswordProtected);
     const getFileFromPostgres = (fileName: string, isPasswordProtected: boolean = false) =>
         getFileFromDatabase('postgres', fileName, isPasswordProtected);
     const getFileFromFirebase = (fileName: string, isPasswordProtected: boolean = false) =>
@@ -392,9 +368,6 @@ const Cloud: React.FC<{
         switch (activeTab) {
             case 's3':
                 provider = 'S3';
-                break;
-            case 'dropbox':
-                provider = 'Dropbox';
                 break;
             case 'postgres':
                 provider = 'PostgreSQL';
@@ -464,8 +437,6 @@ const Cloud: React.FC<{
         switch (activeTab) {
             case 's3':
                 return s3PasswordProtected[fileName] || false;
-            case 'dropbox':
-                return dropboxPasswordProtected[fileName] || false;
             case 'postgres':
                 return postgresPasswordProtected[fileName] || false;
             case 'firebase':
@@ -727,9 +698,6 @@ const Cloud: React.FC<{
                 case 's3':
                     loadFilesFromS3();
                     break;
-                case 'dropbox':
-                    loadFilesFromDropbox();
-                    break;
                 case 'postgres':
                     loadFilesFromPostgres();
                     break;
@@ -783,13 +751,6 @@ const Cloud: React.FC<{
                             disabled={loading}
                         >
                             🗄️ S3
-                        </button>
-                        <button
-                            className={`tab-button ${activeTab === 'dropbox' ? 'active' : ''}`}
-                            onClick={() => switchTab('dropbox')}
-                            disabled={loading}
-                        >
-                            📦 Dropbox
                         </button>
                         <button
                             className={`tab-button ${activeTab === 'postgres' ? 'active' : ''}`}
@@ -855,9 +816,8 @@ const Cloud: React.FC<{
                                 <div className="loading-message">
                                     Loading files from {
                                         activeTab === 's3' ? 'S3' :
-                                            activeTab === 'dropbox' ? 'Dropbox' :
-                                                activeTab === 'postgres' ? 'PostgreSQL' :
-                                                    'Firebase'
+                                            activeTab === 'postgres' ? 'PostgreSQL' :
+                                                'Firebase'
                                     }...
                                 </div>
                             )}
@@ -872,9 +832,8 @@ const Cloud: React.FC<{
                                 <div className="no-files-message">
                                     No files found in {
                                         activeTab === 's3' ? 'S3' :
-                                            activeTab === 'dropbox' ? 'Dropbox' :
-                                                activeTab === 'postgres' ? 'PostgreSQL' :
-                                                    'Firebase'
+                                            activeTab === 'postgres' ? 'PostgreSQL' :
+                                                'Firebase'
                                     }
                                 </div>
                             )}

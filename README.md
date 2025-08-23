@@ -23,7 +23,7 @@ The Government Billing Solution MVP is a modern, cross-platform application desi
 - 🏛️ **Government-Ready**: Designed specifically for government billing workflows
 - 🔒 **Enterprise Security**: AES encryption and JWT authentication
 - 📱 **Cross-Platform**: Single codebase for Web, Android, and iOS
-- ☁️ **Cloud-Native**: Built-in S3 and Dropbox integration
+- ☁️ **Cloud-Native**: Built-in S3 integration
 - 🚀 **Performance-Optimized**: Fast loading and responsive interface
 - 🔧 **Developer-Friendly**: Well-documented with modern tech stack
 
@@ -47,7 +47,6 @@ The Government Billing Solution MVP is a modern, cross-platform application desi
 
 ### ☁️ **Cloud Storage Integration**
 - **AWS S3 Support**: Secure file storage with batch operations
-- **Dropbox Integration**: Real-time sync and collaboration features
 - **File Management**: Upload, download, search, and organize files
 - **Conflict Resolution**: Smart handling of file conflicts
 - **Offline Capability**: Local storage with cloud synchronization
@@ -76,7 +75,7 @@ The Government Billing Solution MVP is a modern, cross-platform application desi
 ### 🔍 **Search & Navigation**
 - **Real-time File Search**: Instant filtering across local and cloud files
 - **Advanced Filtering**: Case-insensitive search with clear feedback
-- **Multi-platform Search**: Unified search across S3 and Dropbox
+- **Multi-platform Search**: Unified search across S3
 - **Quick Actions**: Search and immediately open/edit files
 - **Mobile Optimized**: Touch-friendly search interface
 
@@ -118,7 +117,6 @@ VITE_ENVIRONMENT=development
 
 # Cloud Storage (optional for development)
 VITE_S3_BUCKET=your-s3-bucket
-VITE_DROPBOX_APP_KEY=your-dropbox-key
 ```
 
 ### **Development Server**
@@ -224,7 +222,6 @@ graph TB
     
     D --> G[Capacitor Preferences]
     E --> H[AWS S3]
-    E --> I[Dropbox API]
     F --> J[JWT Service]
     
     B --> K[SocialCalc Engine]
@@ -262,115 +259,4 @@ The application integrates with a backend API for cloud storage and authenticati
 
 - `POST /api/v1/signin` - User authentication
 - `POST /api/v1/uploadFileS3` - S3 file upload
-- `POST /api/v1/uploadFileDropbox` - Dropbox file upload
-- `POST /api/v1/uploadLogo` - Logo upload service
-
----
-
-## 🚀 **Deployment**
-
-### **Web Deployment**
-
-```bash
-# Build for production
-npm run build:prod
-
-# Deploy to your web server
-# Files are generated in the 'dist' directory
-```
-
-### **Android Deployment**
-
-```bash
-# Build Android APK
-npm run build:android
-
-# Open Android Studio for signing and release
-npm run android
-```
-
-### **iOS Deployment**
-
-```bash
-# Build for iOS (requires macOS)
-npm run build:ios
-
-# Open Xcode for signing and release
-npm run ios
-```
-
-### **Environment Variables for Production**
-
-```env
-VITE_API_BASE_URL=https://your-production-api.com
-VITE_APP_NAME=Government Billing Solution
-VITE_ENVIRONMENT=production
-```
-
----
-
-## 🤝 **Contributing**
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### **Development Guidelines**
-
-- Follow TypeScript best practices
-- Write comprehensive tests for new features
-- Update documentation for significant changes
-- Follow the established code style (ESLint configuration)
-
----
-
-## 📋 **System Requirements**
-
-### **Development Environment**
-- **OS**: Windows 10+, macOS 10.15+, or Linux
-- **Node.js**: 18.0+ (LTS recommended)
-- **RAM**: 8GB minimum, 16GB recommended
-- **Storage**: 2GB free space for dependencies
-
-### **Target Devices**
-- **Web**: Modern browsers (Chrome 90+, Firefox 88+, Safari 14+)
-- **Android**: Android 7.0+ (API level 24+)
-- **iOS**: iOS 13.0+ (iPhone 6s and newer)
-
----
-
-## 🔒 **Security Considerations**
-
-- **Data Encryption**: All sensitive data encrypted at rest and in transit
-- **Authentication**: Multi-factor authentication support ready
-- **Audit Trails**: Comprehensive logging for government compliance
-- **Privacy**: No user data collected without explicit consent
-- **Compliance**: Designed to meet government security standards
-
----
-
-## 📞 **Support**
-
-- **Issues**: [GitHub Issues](https://github.com/your-org/govt-billing-solution-mvp/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/govt-billing-solution-mvp/discussions)
-- **Documentation**: [Project Wiki](https://github.com/your-org/govt-billing-solution-mvp/wiki)
-
----
-
-## 📄 **License**
-
-This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
-
----
-
-<div align="center">
-
-**Built with ❤️ for Government Operations**
-
-[⭐ Star this repo](https://github.com/your-org/govt-billing-solution-mvp) • [🐛 Report Bug](https://github.com/your-org/govt-billing-solution-mvp/issues) • [💡 Request Feature](https://github.com/your-org/govt-billing-solution-mvp/issues)
-
-</div>
+- `POST /api/v1/uploadLogo`
