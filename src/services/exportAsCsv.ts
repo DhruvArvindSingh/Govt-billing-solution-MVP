@@ -185,21 +185,19 @@ export function cleanCSVContent(csvContent: string): string {
         const lines = csvContent.split(/\r?\n/);
         const cleanedLines: string[] = [];
 
-        for (const line of lines) {
-            const trimmedLine = line.trim();
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
 
-            // Skip completely empty lines
-            if (trimmedLine === "") {
-                continue;
+            // Preserve all lines except completely empty ones at the end
+            if (line.trim() !== "" || i < lines.length - 1) {
+                // Keep the line as-is to preserve empty cells (represented by commas)
+                cleanedLines.push(line);
             }
+        }
 
-            // Remove trailing commas if they represent empty cells at the end
-            const cleanedLine = trimmedLine.replace(/,+$/, '');
-
-            // Only add non-empty lines
-            if (cleanedLine !== "") {
-                cleanedLines.push(cleanedLine);
-            }
+        // Remove only trailing empty lines
+        while (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1].trim() === "") {
+            cleanedLines.pop();
         }
 
         return cleanedLines.join("\n");

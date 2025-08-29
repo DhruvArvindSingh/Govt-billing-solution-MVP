@@ -187,6 +187,117 @@ export const exportHTMLAsPDF = async (
     }
 };
 
+// Optimized PDF export specifically for email attachments (smaller size, faster generation)
+export const exportSpreadsheetAsPDFForEmail = async (
+    spreadsheetElement: HTMLElement,
+    options: ExportOptions = {}
+): Promise<Blob> => {
+    const {
+        filename = "spreadsheet",
+        format = "a4",
+        orientation = "landscape",
+        margin = 5, // Smaller margins for email
+        quality = 0.6, // Much lower quality for smaller file size
+        onProgress,
+    } = options;
+
+    try {
+        onProgress?.("Preparing spreadsheet for email...");
+
+        // Skip the delay for faster processing
+        onProgress?.("Rendering spreadsheet to canvas...");
+
+        // Optimized html2canvas settings for email with aggressive performance settings
+        const canvas = await html2canvas(spreadsheetElement, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            scale: quality, // Lower scale for faster rendering
+            logging: false,
+            width: Math.min(spreadsheetElement.scrollWidth, 1500), // Further reduced for faster processing
+            height: Math.min(spreadsheetElement.scrollHeight, 1500), // Further reduced for faster processing
+            foreignObjectRendering: false,
+            imageTimeout: 0,
+            removeContainer: false,
+            timeout: 3000, // Shorter timeout for faster failure
+            onclone: (clonedDoc) => {
+                // Remove unnecessary elements for faster rendering
+                const clonedElement = clonedDoc.querySelector('[data-spreadsheet]') || clonedDoc.body;
+                const unnecessaryElements = clonedElement.querySelectorAll('script, style, noscript, iframe');
+                unnecessaryElements.forEach(el => el.remove());
+            }
+        } as any);
+
+        onProgress?.("Generating optimized PDF...");
+
+        // Create PDF with specified orientation
+        const pdf = new jsPDF({
+            orientation: orientation,
+            unit: 'mm',
+            format: format,
+            compress: true // Enable compression for smaller file size
+        });
+
+        // Calculate dimensions
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const availableWidth = pdfWidth - (margin * 2);
+        const availableHeight = pdfHeight - (margin * 2);
+
+        // Scale the content to fit the page (optimized for single page)
+        const scaleFactor = Math.min(
+            availableWidth / (canvas.width * 0.75),
+            availableHeight / (canvas.height * 0.75)
+        );
+
+        let imgWidth = canvas.width * scaleFactor;
+        let imgHeight = canvas.height * scaleFactor;
+
+        // Ensure we don't exceed page boundaries
+        if (imgWidth > availableWidth) {
+            const widthScale = availableWidth / imgWidth;
+            imgWidth = availableWidth;
+            imgHeight = imgHeight * widthScale;
+        }
+
+        if (imgHeight > availableHeight) {
+            const heightScale = availableHeight / imgHeight;
+            imgHeight = availableHeight;
+            imgWidth = imgWidth * heightScale;
+        }
+
+        // Center the image on the page
+        const xPos = (pdfWidth - imgWidth) / 2;
+        const yPos = (pdfHeight - imgHeight) / 2;
+
+        onProgress?.("Adding content to PDF...");
+
+        // Single page only for email (faster processing)
+        // Use lower quality JPEG for smaller file size
+        const imageData = canvas.toDataURL('image/jpeg', 0.6); // JPEG with 60% quality for smaller size
+        pdf.addImage(imageData, 'JPEG', xPos, yPos, imgWidth, imgHeight, undefined, 'FAST');
+
+        onProgress?.("Email PDF ready!");
+
+        // Memory cleanup
+        const blob = pdf.output("blob");
+
+        // Clean up canvas to free memory
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.clearRect(0, 0, 1, 1);
+        }
+
+        return blob;
+
+    } catch (error) {
+        console.error('Error generating email PDF:', error);
+        throw new Error('Failed to generate PDF for email. Please try again.');
+    }
+};
+
 // Export spreadsheet element directly (for current implementation compatibility)
 export const exportSpreadsheetAsPDF = async (
     spreadsheetElement: HTMLElement,

@@ -10,7 +10,11 @@ const config: CapacitorConfig = {
       'http://localhost:*',
       'http://192.168.*.*:*',
       'http://10.*.*.*:*',
-      'http://*'
+      'http://*',
+      'https://accounts.google.com/*',
+      'https://mail.google.com/*',
+      'mailto:*',
+      'googlegmail://*'
     ]
   },
   android: {
@@ -21,6 +25,13 @@ const config: CapacitorConfig = {
       resize: 'none',
       style: 'dark',
       resizeOnFullScreen: false
+    },
+    Share: {
+      subject: 'Government Billing Solution - Document Export',
+      dialogTitle: 'Share via Email'
+    },
+    Filesystem: {
+      tempFolder: 'temp'
     }
   }
 };

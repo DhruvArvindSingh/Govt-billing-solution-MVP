@@ -745,21 +745,107 @@ export function validateSpreadsheetState() {
 
 export function getCleanCSVContent() {
   try {
+    // Try the comprehensive CSV generation first
+    var csvContent = getComprehensiveCSVContent();
+    if (csvContent) {
+      return csvContent;
+    }
+
+    // Fallback to original method
     var csvContent = getCSVContent();
     if (!csvContent) {
       throw new Error("No CSV content available");
     }
 
-    // Clean up the CSV content
+    // Preserve all cells but clean up formatting
     var lines = csvContent.split('\n');
-    var cleanedLines = lines
-      .filter(function (line) { return line.trim() !== ''; })
-      .map(function (line) { return line.trim(); });
+    var cleanedLines = [];
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      // Only remove completely empty lines at the end
+      if (line.trim() !== '' || i < lines.length - 1) {
+        cleanedLines.push(line);
+      }
+    }
 
     return cleanedLines.join('\n');
   } catch (error) {
     console.error('Error getting clean CSV content:', error);
     throw new Error('Failed to generate CSV content');
+  }
+}
+
+export function getComprehensiveCSVContent() {
+  try {
+    var control = SocialCalc.GetCurrentWorkBookControl();
+    if (!control || !control.workbook || !control.workbook.spreadsheet) {
+      return null;
+    }
+
+    var editor = control.workbook.spreadsheet.editor;
+    var sheet = editor.context;
+    var cells = sheet.cellattribs.celllist;
+
+    // Find the maximum row and column
+    var maxRow = 0;
+    var maxCol = 0;
+
+    for (var cellname in cells) {
+      var cr = SocialCalc.coordToCr(cellname);
+      if (cr.row > maxRow) maxRow = cr.row;
+      if (cr.col > maxCol) maxCol = cr.col;
+    }
+
+    // Also check sheet.cells for cell values
+    for (var cellname in sheet.cells) {
+      var cr = SocialCalc.coordToCr(cellname);
+      if (cr.row > maxRow) maxRow = cr.row;
+      if (cr.col > maxCol) maxCol = cr.col;
+    }
+
+    if (maxRow === 0 && maxCol === 0) {
+      return null; // No data found
+    }
+
+    // Generate CSV content
+    var csvLines = [];
+
+    for (var row = 1; row <= maxRow; row++) {
+      var csvRow = [];
+
+      for (var col = 1; col <= maxCol; col++) {
+        var cellname = SocialCalc.crToCoord(col, row);
+        var cellvalue = "";
+
+        // Get cell value
+        if (sheet.cells[cellname]) {
+          var cell = sheet.cells[cellname];
+          if (cell.datavalue !== undefined) {
+            cellvalue = cell.datavalue;
+          } else if (cell.formula) {
+            cellvalue = cell.formula;
+          } else if (cell.value !== undefined) {
+            cellvalue = cell.value;
+          }
+        }
+
+        // Escape CSV special characters
+        cellvalue = String(cellvalue || "");
+        if (cellvalue.indexOf(',') !== -1 || cellvalue.indexOf('"') !== -1 || cellvalue.indexOf('\n') !== -1) {
+          cellvalue = '"' + cellvalue.replace(/"/g, '""') + '"';
+        }
+
+        csvRow.push(cellvalue);
+      }
+
+      csvLines.push(csvRow.join(','));
+    }
+
+    return csvLines.join('\n');
+  } catch (error) {
+    console.error('Error generating comprehensive CSV:', error);
+    return null;
   }
 }
 

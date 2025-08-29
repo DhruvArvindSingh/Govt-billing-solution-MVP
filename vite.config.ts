@@ -6,6 +6,12 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+    cors: true,
+    strictPort: false,
+  },
   plugins: [
     react(),
     legacy(),
@@ -32,16 +38,5 @@ export default defineConfig({
       },
     }),
   ],
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/setupTests.ts'],
-    css: true,
-    reporters: ['verbose'],
-    coverage: {
-      reporter: ['text', 'json', 'html'],
-      include: ['src/**/*'],
-      exclude: ['node_modules/', 'src/setupTests.ts'],
-    },
-  },
+  // Test configuration is handled by vitest.config.ts or package.json
 });
