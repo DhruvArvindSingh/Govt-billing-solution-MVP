@@ -34,13 +34,15 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
+    const [mongoFiles, setMongoFiles] = useState<{ [key: string]: number }>({});
     const [s3PasswordProtected, setS3PasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [postgresPasswordProtected, setPostgresPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [firebasePasswordProtected, setFirebasePasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [mongoPasswordProtected, setMongoPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -93,6 +95,10 @@ const Cloud: React.FC<{
                     setFirebaseFiles(allFiles);
                     setFirebasePasswordProtected(passwordProtectedMap);
                     break;
+                case 'mongo':
+                    setMongoFiles(allFiles);
+                    setMongoPasswordProtected(passwordProtectedMap);
+                    break;
             }
         } catch (err) {
             console.error(`Failed to load files from ${database}`, err);
@@ -110,6 +116,7 @@ const Cloud: React.FC<{
     const loadFilesFromS3 = () => loadFilesFromDatabase('s3');
     const loadFilesFromPostgres = () => loadFilesFromDatabase('postgres');
     const loadFilesFromFirebase = () => loadFilesFromDatabase('firebase');
+    const loadFilesFromMongo = () => loadFilesFromDatabase('mongo');
 
     // Load files from local storage
     const loadLocalFiles = async () => {
@@ -124,7 +131,7 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'postgres' | 'firebase') => {
+    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo') => {
         setActiveTab(tab);
         if (tab === 's3' && Object.keys(s3Files).length === 0) {
             await loadFilesFromS3();
@@ -132,6 +139,8 @@ const Cloud: React.FC<{
             await loadFilesFromPostgres();
         } else if (tab === 'firebase' && Object.keys(firebaseFiles).length === 0) {
             await loadFilesFromFirebase();
+        } else if (tab === 'mongo' && Object.keys(mongoFiles).length === 0) {
+            await loadFilesFromMongo();
         }
     };
 
@@ -144,6 +153,8 @@ const Cloud: React.FC<{
                 return postgresFiles;
             case 'firebase':
                 return firebaseFiles;
+            case 'mongo':
+                return mongoFiles;
             default:
                 return s3Files;
         }
@@ -189,6 +200,9 @@ const Cloud: React.FC<{
                 case 'firebase':
                     success = await saveFileToFirebase(fullFileName, currentData, isPasswordProtected);
                     break;
+                case 'mongo':
+                    success = await saveFileToMongo(fullFileName, currentData, isPasswordProtected);
+                    break;
             }
 
             if (success) {
@@ -202,6 +216,9 @@ const Cloud: React.FC<{
                         break;
                     case 'firebase':
                         provider = 'Firebase';
+                        break;
+                    case 'mongo':
+                        provider = 'MongoDB';
                         break;
                 }
                 setToastMessage(`Invoice saved to ${provider} as "${fullFileName}"`);
@@ -244,6 +261,8 @@ const Cloud: React.FC<{
         saveFileToDatabase('postgres', fileName, content, isPasswordProtected);
     const saveFileToFirebase = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
         saveFileToDatabase('firebase', fileName, content, isPasswordProtected);
+    const saveFileToMongo = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
+        saveFileToDatabase('mongo', fileName, content, isPasswordProtected);
 
     // Edit file from cloud
     const editFile = async (key: string) => {
@@ -325,6 +344,9 @@ const Cloud: React.FC<{
                 case 'firebase':
                     filesObject = firebaseFiles;
                     break;
+                case 'mongo':
+                    filesObject = mongoFiles;
+                    break;
                 default:
                     filesObject = {};
             }
@@ -360,6 +382,8 @@ const Cloud: React.FC<{
         getFileFromDatabase('postgres', fileName, isPasswordProtected);
     const getFileFromFirebase = (fileName: string, isPasswordProtected: boolean = false) =>
         getFileFromDatabase('firebase', fileName, isPasswordProtected);
+    const getFileFromMongo = (fileName: string, isPasswordProtected: boolean = false) =>
+        getFileFromDatabase('mongo', fileName, isPasswordProtected);
 
     // Delete file
     const deleteFile = (key: string) => {
@@ -374,6 +398,9 @@ const Cloud: React.FC<{
                 break;
             case 'firebase':
                 provider = 'Firebase';
+                break;
+            case 'mongo':
+                provider = 'MongoDB';
                 break;
         }
         setAlertMessage(`Do you want to delete the ${key} file from ${provider}?`);
@@ -441,6 +468,8 @@ const Cloud: React.FC<{
                 return postgresPasswordProtected[fileName] || false;
             case 'firebase':
                 return firebasePasswordProtected[fileName] || false;
+            case 'mongo':
+                return mongoPasswordProtected[fileName] || false;
             default:
                 return false;
         }
@@ -704,6 +733,9 @@ const Cloud: React.FC<{
                 case 'firebase':
                     loadFilesFromFirebase();
                     break;
+                case 'mongo':
+                    loadFilesFromMongo();
+                    break;
             }
         }
     }, [showModal, activeTab]);
@@ -766,6 +798,13 @@ const Cloud: React.FC<{
                         >
                             🔥 Firebase
                         </button>
+                        <button
+                            className={`tab-button ${activeTab === 'mongo' ? 'active' : ''}`}
+                            onClick={() => switchTab('mongo')}
+                            disabled={loading}
+                        >
+                            🍃 MongoDB
+                        </button>
                     </div>
 
                     {/* Search and Upload */}
@@ -817,7 +856,8 @@ const Cloud: React.FC<{
                                     Loading files from {
                                         activeTab === 's3' ? 'S3' :
                                             activeTab === 'postgres' ? 'PostgreSQL' :
-                                                'Firebase'
+                                                activeTab === 'firebase' ? 'Firebase' :
+                                                    'MongoDB'
                                     }...
                                 </div>
                             )}
@@ -833,7 +873,8 @@ const Cloud: React.FC<{
                                     No files found in {
                                         activeTab === 's3' ? 'S3' :
                                             activeTab === 'postgres' ? 'PostgreSQL' :
-                                                'Firebase'
+                                                activeTab === 'firebase' ? 'Firebase' :
+                                                    'MongoDB'
                                     }
                                 </div>
                             )}

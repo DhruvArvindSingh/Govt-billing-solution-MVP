@@ -195,7 +195,7 @@ const Files: React.FC<{
       for (const fileName of selectedFileKeys) {
         try {
           const fileData = await props.store._getFile(fileName);
-          const content = decodeURIComponent(fileData.content);
+          const content = fileData.content;
           const isPasswordProtected = fileData.isPasswordProtected || false;
 
           // Call unified upload function with the selected database
@@ -239,6 +239,8 @@ const Files: React.FC<{
         return 'PostgreSQL';
       case 'firebase':
         return 'Firebase';
+      case 'mongo':
+        return 'MongoDB';
       default:
         return database;
     }
@@ -394,6 +396,7 @@ const Files: React.FC<{
                       <IonSelectOption value="s3">🗄️ S3</IonSelectOption>
                       <IonSelectOption value="postgres">🐘 PostgreSQL</IonSelectOption>
                       <IonSelectOption value="firebase">🔥 Firebase</IonSelectOption>
+                      <IonSelectOption value="mongo">🍃 MongoDB</IonSelectOption>
                     </IonSelect>
                   </IonCol>
                   <IonCol size="6">

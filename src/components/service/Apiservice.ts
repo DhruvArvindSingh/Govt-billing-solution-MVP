@@ -26,6 +26,10 @@ interface FirebaseFile {
     [fileName: string]: number; // timestamp
 }
 
+interface MongoFile {
+    [fileName: string]: number; // timestamp
+}
+
 interface FileListResponse {
     files: { [fileName: string]: number };
     passwordProtectedFiles: { [fileName: string]: number };
@@ -61,7 +65,7 @@ interface AuthResponse {
 }
 
 // Database type for unified functions
-type DatabaseType = 's3' | 'postgres' | 'firebase';
+type DatabaseType = 's3' | 'postgres' | 'firebase' | 'mongo';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -256,7 +260,7 @@ class ApiService {
 
     /**
      * Unified function to list all files from any database
-     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo')
      * @returns Promise<FileListResponse>
      */
     static async listAllFiles(database: DatabaseType): Promise<FileListResponse> {
@@ -277,6 +281,9 @@ class ApiService {
                 case 'firebase':
                     endpoint = '/api/v1/listAllFirebase';
                     break;
+                case 'mongo':
+                    endpoint = '/api/v1/listAllMongo';
+                    break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
             }
@@ -290,7 +297,7 @@ class ApiService {
 
     /**
      * Unified function to get a file from any database
-     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo')
      * @param fileName - Name of the file to retrieve
      * @param isPasswordProtected - Whether the file is password protected
      * @returns Promise<FileContent>
@@ -317,6 +324,9 @@ class ApiService {
                     break;
                 case 'firebase':
                     endpoint = '/api/v1/getFileFirebase';
+                    break;
+                case 'mongo':
+                    endpoint = '/api/v1/getFileMongo';
                     break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
@@ -353,7 +363,7 @@ class ApiService {
 
     /**
      * Unified function to upload a file to any database
-     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo')
      * @param fileName - Name of the file to upload
      * @param content - Content of the file
      * @param isPasswordProtected - Whether the file is password protected
@@ -385,6 +395,9 @@ class ApiService {
                 case 'firebase':
                     endpoint = '/api/v1/uploadFileFirebase';
                     break;
+                case 'mongo':
+                    endpoint = '/api/v1/uploadFileMongo';
+                    break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
             }
@@ -404,7 +417,7 @@ class ApiService {
 
     /**
      * Unified function to delete a file from any database
-     * @param database - The database type ('s3', 'dropbox', 'postgres', 'firebase')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo')
      * @param fileName - Name of the file to delete
      * @param isPasswordProtected - Whether the file is password protected
      * @returns Promise<ApiResponse>
@@ -430,6 +443,9 @@ class ApiService {
                     break;
                 case 'firebase':
                     endpoint = '/api/v1/deleteFileFirebase';
+                    break;
+                case 'mongo':
+                    endpoint = '/api/v1/deleteFileMongo';
                     break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
