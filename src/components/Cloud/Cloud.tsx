@@ -17,8 +17,10 @@ import {
     IonToolbar,
     IonToast,
     IonLoading,
+    IonSelect,
+    IonSelectOption,
 } from "@ionic/react";
-import { cloud, trash, create, cloudUpload, close, shield } from "ionicons/icons";
+import { cloud, trash, create, cloudUpload, close, shield, download, shuffle } from "ionicons/icons";
 import { File } from "../Storage/LocalStorage";
 import PasswordModal from "../PasswordModal/PasswordModal";
 import CryptoJS from "crypto-js";
@@ -34,15 +36,17 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
     const [mongoFiles, setMongoFiles] = useState<{ [key: string]: number }>({});
+    const [neo4jFiles, setNeo4jFiles] = useState<{ [key: string]: number }>({});
     const [s3PasswordProtected, setS3PasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [postgresPasswordProtected, setPostgresPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [firebasePasswordProtected, setFirebasePasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [mongoPasswordProtected, setMongoPasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [neo4jPasswordProtected, setNeo4jPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -60,6 +64,10 @@ const Cloud: React.FC<{
     const [currentPasswordFile, setCurrentPasswordFile] = useState<string>('');
     const [passwordError, setPasswordError] = useState<string>('');
     const [encryptedContent, setEncryptedContent] = useState<string>('');
+    const [showMigrationModal, setShowMigrationModal] = useState(false);
+    const [targetDatabase, setTargetDatabase] = useState<DatabaseType | null>(null);
+    const [migrationConflictFiles, setMigrationConflictFiles] = useState<string[]>([]);
+    const [showMigrationConflictAlert, setShowMigrationConflictAlert] = useState(false);
 
     // Unified function to load files from any database
     const loadFilesFromDatabase = async (database: DatabaseType) => {
@@ -99,6 +107,10 @@ const Cloud: React.FC<{
                     setMongoFiles(allFiles);
                     setMongoPasswordProtected(passwordProtectedMap);
                     break;
+                case 'neo4j':
+                    setNeo4jFiles(allFiles);
+                    setNeo4jPasswordProtected(passwordProtectedMap);
+                    break;
             }
         } catch (err) {
             console.error(`Failed to load files from ${database}`, err);
@@ -117,6 +129,7 @@ const Cloud: React.FC<{
     const loadFilesFromPostgres = () => loadFilesFromDatabase('postgres');
     const loadFilesFromFirebase = () => loadFilesFromDatabase('firebase');
     const loadFilesFromMongo = () => loadFilesFromDatabase('mongo');
+    const loadFilesFromNeo4j = () => loadFilesFromDatabase('neo4j');
 
     // Load files from local storage
     const loadLocalFiles = async () => {
@@ -131,7 +144,10 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo') => {
+    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j') => {
+        // Deselect all files when switching tabs
+        setSelectedCloudFiles({});
+
         setActiveTab(tab);
         if (tab === 's3' && Object.keys(s3Files).length === 0) {
             await loadFilesFromS3();
@@ -141,6 +157,8 @@ const Cloud: React.FC<{
             await loadFilesFromFirebase();
         } else if (tab === 'mongo' && Object.keys(mongoFiles).length === 0) {
             await loadFilesFromMongo();
+        } else if (tab === 'neo4j' && Object.keys(neo4jFiles).length === 0) {
+            await loadFilesFromNeo4j();
         }
     };
 
@@ -155,6 +173,8 @@ const Cloud: React.FC<{
                 return firebaseFiles;
             case 'mongo':
                 return mongoFiles;
+            case 'neo4j':
+                return neo4jFiles;
             default:
                 return s3Files;
         }
@@ -203,6 +223,9 @@ const Cloud: React.FC<{
                 case 'mongo':
                     success = await saveFileToMongo(fullFileName, currentData, isPasswordProtected);
                     break;
+                case 'neo4j':
+                    success = await saveFileToNeo4j(fullFileName, currentData, isPasswordProtected);
+                    break;
             }
 
             if (success) {
@@ -219,6 +242,9 @@ const Cloud: React.FC<{
                         break;
                     case 'mongo':
                         provider = 'MongoDB';
+                        break;
+                    case 'neo4j':
+                        provider = 'Neo4j';
                         break;
                 }
                 setToastMessage(`Invoice saved to ${provider} as "${fullFileName}"`);
@@ -263,6 +289,8 @@ const Cloud: React.FC<{
         saveFileToDatabase('firebase', fileName, content, isPasswordProtected);
     const saveFileToMongo = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
         saveFileToDatabase('mongo', fileName, content, isPasswordProtected);
+    const saveFileToNeo4j = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
+        saveFileToDatabase('neo4j', fileName, content, isPasswordProtected);
 
     // Edit file from cloud
     const editFile = async (key: string) => {
@@ -347,6 +375,9 @@ const Cloud: React.FC<{
                 case 'mongo':
                     filesObject = mongoFiles;
                     break;
+                case 'neo4j':
+                    filesObject = neo4jFiles;
+                    break;
                 default:
                     filesObject = {};
             }
@@ -384,6 +415,8 @@ const Cloud: React.FC<{
         getFileFromDatabase('firebase', fileName, isPasswordProtected);
     const getFileFromMongo = (fileName: string, isPasswordProtected: boolean = false) =>
         getFileFromDatabase('mongo', fileName, isPasswordProtected);
+    const getFileFromNeo4j = (fileName: string, isPasswordProtected: boolean = false) =>
+        getFileFromDatabase('neo4j', fileName, isPasswordProtected);
 
     // Delete file
     const deleteFile = (key: string) => {
@@ -401,6 +434,9 @@ const Cloud: React.FC<{
                 break;
             case 'mongo':
                 provider = 'MongoDB';
+                break;
+            case 'neo4j':
+                provider = 'Neo4j';
                 break;
         }
         setAlertMessage(`Do you want to delete the ${key} file from ${provider}?`);
@@ -470,6 +506,8 @@ const Cloud: React.FC<{
                 return firebasePasswordProtected[fileName] || false;
             case 'mongo':
                 return mongoPasswordProtected[fileName] || false;
+            case 'neo4j':
+                return neo4jPasswordProtected[fileName] || false;
             default:
                 return false;
         }
@@ -559,6 +597,115 @@ const Cloud: React.FC<{
 
     const hasSelectedCloudFiles = () => {
         return getSelectedCloudFiles().length > 0;
+    };
+
+    const deselectAllCloudFiles = () => {
+        setSelectedCloudFiles({});
+    };
+
+    // Get available migration target databases (excluding current active tab)
+    const getMigrationTargetDatabases = (): DatabaseType[] => {
+        const allDatabases: DatabaseType[] = ['s3', 'postgres', 'firebase', 'mongo', 'neo4j'];
+        return allDatabases.filter(db => db !== activeTab);
+    };
+
+    // Get database display name for migration
+    const getDatabaseDisplayName = (database: DatabaseType): string => {
+        switch (database) {
+            case 's3': return 'S3';
+            case 'postgres': return 'PostgreSQL';
+            case 'firebase': return 'Firebase';
+            case 'mongo': return 'MongoDB';
+            case 'neo4j': return 'Neo4j';
+            default: return database;
+        }
+    };
+
+    // Handle migration confirmation
+    const handleMigrationConfirm = async (targetDb: DatabaseType) => {
+        setTargetDatabase(targetDb);
+        setLoading(true);
+
+        try {
+            // Get list of files in target database
+            const targetResponse = await ApiService.listAllFiles(targetDb);
+            const targetFiles = Object.keys(targetResponse.files || {});
+
+            // Check for conflicts
+            const selectedFiles = getSelectedCloudFiles();
+            const conflicts = selectedFiles.filter(fileName => targetFiles.includes(fileName));
+
+            if (conflicts.length > 0) {
+                setMigrationConflictFiles(conflicts);
+                setShowMigrationConflictAlert(true);
+            } else {
+                // No conflicts, proceed with migration
+                await executeMigration(targetDb, selectedFiles);
+            }
+        } catch (error) {
+            console.error('Error checking target database:', error);
+            setToastMessage('Failed to check target database files');
+            setShowToast(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Execute file migration
+    const executeMigration = async (targetDb: DatabaseType, filesToMigrate: string[], skipConflicts: boolean = false) => {
+        setLoading(true);
+
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+            const finalFilesToMigrate = skipConflicts
+                ? filesToMigrate.filter(file => !migrationConflictFiles.includes(file))
+                : filesToMigrate;
+
+            for (const fileName of finalFilesToMigrate) {
+                try {
+                    // Get file from source database
+                    const isPasswordProtected = isFilePasswordProtected(fileName);
+                    const fileData = await getFileFromDatabase(activeTab, fileName, isPasswordProtected);
+
+                    if (fileData && fileData.content) {
+                        // Upload to target database
+                        await ApiService.uploadFile(targetDb, fileName, fileData.content, isPasswordProtected);
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error migrating ${fileName}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Clear selections and show result
+            setSelectedCloudFiles({});
+
+            const sourceDbName = getDatabaseDisplayName(activeTab);
+            const targetDbName = getDatabaseDisplayName(targetDb);
+
+            if (successCount > 0 && errorCount === 0) {
+                setToastMessage(`Successfully migrated ${successCount} file(s) from ${sourceDbName} to ${targetDbName}`);
+            } else if (successCount > 0 && errorCount > 0) {
+                setToastMessage(`Migrated ${successCount} file(s), ${errorCount} failed`);
+            } else {
+                setToastMessage(`Failed to migrate files to ${targetDbName}`);
+            }
+            setShowToast(true);
+
+        } catch (error) {
+            console.error('Migration error:', error);
+            setToastMessage('Error during file migration');
+            setShowToast(true);
+        } finally {
+            setLoading(false);
+            setShowMigrationModal(false);
+            setTargetDatabase(null);
+            setMigrationConflictFiles([]);
+        }
     };
 
     const toggleCloudFileSelection = (key: string) => {
@@ -736,6 +883,9 @@ const Cloud: React.FC<{
                 case 'mongo':
                     loadFilesFromMongo();
                     break;
+                case 'neo4j':
+                    loadFilesFromNeo4j();
+                    break;
             }
         }
     }, [showModal, activeTab]);
@@ -760,14 +910,20 @@ const Cloud: React.FC<{
     // Create the cloud page content
     const createCloudPage = () => {
         return (
-            <IonModal isOpen={showModal} onDidDismiss={() => setShowModal(false)} className="cloud-modal">
+            <IonModal isOpen={showModal} onDidDismiss={() => {
+                setShowModal(false);
+                setSelectedCloudFiles({});
+            }} className="cloud-modal">
                 <IonHeader>
                     <IonToolbar>
                         <IonTitle>Cloud Storage</IonTitle>
                         <IonButton
                             fill="clear"
                             slot="end"
-                            onClick={() => setShowModal(false)}
+                            onClick={() => {
+                                setShowModal(false);
+                                setSelectedCloudFiles({});
+                            }}
                         >
                             <IonIcon icon={close} />
                         </IonButton>
@@ -805,28 +961,64 @@ const Cloud: React.FC<{
                         >
                             🍃 MongoDB
                         </button>
+                        <button
+                            className={`tab-button ${activeTab === 'neo4j' ? 'active' : ''}`}
+                            onClick={() => switchTab('neo4j')}
+                            disabled={loading}
+                        >
+                            🔗 Neo4j
+                        </button>
                     </div>
 
                     {/* Search and Upload */}
                     <div className="search-upload-container">
                         <IonButton
                             className="upload-button"
-                            onClick={uploadCurrentInvoice}
+                            onClick={hasSelectedCloudFiles() ? deselectAllCloudFiles : uploadCurrentInvoice}
                             disabled={loading}
+                            color={hasSelectedCloudFiles() ? "medium" : "primary"}
                         >
-                            <IonIcon icon={cloudUpload} slot="start" />
-                            Upload Invoice
+                            <IonIcon icon={hasSelectedCloudFiles() ? close : cloudUpload} slot="start" />
+                            {hasSelectedCloudFiles() ? "Deselect All" : "Upload Invoice"}
                         </IonButton>
 
                         {hasSelectedCloudFiles() && (
-                            <IonButton
-                                className="download-all-button"
-                                color="secondary"
-                                onClick={moveToLocal}
-                                disabled={loading}
-                            >
-                                Download All ({getSelectedCloudFiles().length})
-                            </IonButton>
+                            <div className="selected-actions-container" style={{ display: 'flex', gap: '8px' }}>
+                                <IonButton
+                                    size="small"
+                                    color="secondary"
+                                    onClick={moveToLocal}
+                                    disabled={loading}
+                                >
+                                    <IonIcon icon={download} slot="icon-only" />
+                                </IonButton>
+
+                                <IonSelect
+                                    value=""
+                                    placeholder="Migrate"
+                                    interface="popover"
+                                    onIonChange={(e) => {
+                                        if (e.detail.value) {
+                                            handleMigrationConfirm(e.detail.value);
+                                        }
+                                    }}
+                                    style={{
+                                        minWidth: '100px',
+                                        maxWidth: '120px',
+                                        '--background': 'var(--ion-color-tertiary)',
+                                        '--color': 'var(--ion-color-tertiary-contrast)',
+                                        '--border-radius': '6px',
+                                        '--padding': '8px 12px'
+                                    }}
+                                >
+                                    <IonIcon icon={shuffle} slot="start" />
+                                    {getMigrationTargetDatabases().map(db => (
+                                        <IonSelectOption key={db} value={db}>
+                                            {getDatabaseDisplayName(db)}
+                                        </IonSelectOption>
+                                    ))}
+                                </IonSelect>
+                            </div>
                         )}
 
                         <div className="search-container">
@@ -857,7 +1049,8 @@ const Cloud: React.FC<{
                                         activeTab === 's3' ? 'S3' :
                                             activeTab === 'postgres' ? 'PostgreSQL' :
                                                 activeTab === 'firebase' ? 'Firebase' :
-                                                    'MongoDB'
+                                                    activeTab === 'mongo' ? 'MongoDB' :
+                                                        'Neo4j'
                                     }...
                                 </div>
                             )}
@@ -874,7 +1067,8 @@ const Cloud: React.FC<{
                                         activeTab === 's3' ? 'S3' :
                                             activeTab === 'postgres' ? 'PostgreSQL' :
                                                 activeTab === 'firebase' ? 'Firebase' :
-                                                    'MongoDB'
+                                                    activeTab === 'mongo' ? 'MongoDB' :
+                                                        'Neo4j'
                                     }
                                 </div>
                             )}
@@ -1013,6 +1207,49 @@ const Cloud: React.FC<{
                             }
                             setMoveOperation(null);
                             setConflictFiles([]);
+                        }
+                    }
+                ]}
+            />
+
+            {/* Migration Conflict Alert */}
+            <IonAlert
+                animated
+                isOpen={showMigrationConflictAlert}
+                onDidDismiss={() => {
+                    setShowMigrationConflictAlert(false);
+                    setMigrationConflictFiles([]);
+                    setTargetDatabase(null);
+                }}
+                header="Migration Conflicts"
+                message={`${migrationConflictFiles.length} file(s) already exist in ${targetDatabase ? getDatabaseDisplayName(targetDatabase) : 'target database'}. What would you like to do?`}
+                buttons={[
+                    {
+                        text: "Cancel",
+                        role: "cancel",
+                        handler: () => {
+                            setMigrationConflictFiles([]);
+                            setTargetDatabase(null);
+                        }
+                    },
+                    {
+                        text: "Skip Conflict Files",
+                        handler: () => {
+                            if (targetDatabase) {
+                                const selectedFiles = getSelectedCloudFiles();
+                                executeMigration(targetDatabase, selectedFiles, true);
+                            }
+                            setShowMigrationConflictAlert(false);
+                        }
+                    },
+                    {
+                        text: "Migrate All",
+                        handler: () => {
+                            if (targetDatabase) {
+                                const selectedFiles = getSelectedCloudFiles();
+                                executeMigration(targetDatabase, selectedFiles, false);
+                            }
+                            setShowMigrationConflictAlert(false);
                         }
                     }
                 ]}

@@ -241,6 +241,8 @@ const Files: React.FC<{
         return 'Firebase';
       case 'mongo':
         return 'MongoDB';
+      case 'neo4j':
+        return 'Neo4j';
       default:
         return database;
     }
@@ -397,6 +399,7 @@ const Files: React.FC<{
                       <IonSelectOption value="postgres">🐘 PostgreSQL</IonSelectOption>
                       <IonSelectOption value="firebase">🔥 Firebase</IonSelectOption>
                       <IonSelectOption value="mongo">🍃 MongoDB</IonSelectOption>
+                      <IonSelectOption value="neo4j">🔗 Neo4j</IonSelectOption>
                     </IonSelect>
                   </IonCol>
                   <IonCol size="6">
