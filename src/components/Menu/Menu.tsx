@@ -5,14 +5,17 @@ import { isPlatform, IonToast, IonLoading } from "@ionic/react";
 import gmailService from '../../services/gmailService';
 import AlternativeGmailService from '../../services/gmailServiceAlternative';
 import { Printer } from "@ionic-native/printer";
-import { IonActionSheet, IonAlert } from "@ionic/react";
-import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline, imageOutline } from "ionicons/icons";
+import { IonActionSheet, IonAlert, IonModal, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons } from "@ionic/react";
+import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline, imageOutline, qrCodeOutline } from "ionicons/icons";
 import { APP_NAME, LOGO } from "../../app-data.js";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner';
+import QRCode from 'qrcode';
+import QrScanner from 'qr-scanner';
 import PasswordModal from '../PasswordModal/PasswordModal';
 import { exportSpreadsheetAsPDF, exportSpreadsheetAsPDFForEmail } from '../../services/exportAsPdf';
 import { exportCSV, parseSocialCalcCSV, cleanCSVContent, validateCSVContent } from '../../services/exportAsCsv';
@@ -56,6 +59,12 @@ const Menu: React.FC<{
   const [showFileTypeAlert, setShowFileTypeAlert] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("csv");
+  const [showBarcodeAlert, setShowBarcodeAlert] = useState(false);
+  const [showBarcodeDisplayModal, setShowBarcodeDisplayModal] = useState(false);
+  const [showScanOptionsAlert, setShowScanOptionsAlert] = useState(false);
+  const [generatedBarcodeUrl, setGeneratedBarcodeUrl] = useState("");
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState("");
+  const [originalSignedUrl, setOriginalSignedUrl] = useState("");
   /* Utility functions */
   const _validateName = async (filename: string): Promise<boolean> => {
     filename = filename.trim();
@@ -895,6 +904,298 @@ ${APP_NAME} Team`,
     }
   };
 
+  // Barcode functionality
+  const handleBarcodeOption = () => {
+    setShowBarcodeAlert(true);
+  };
+
+  const scanBarcode = async () => {
+    // Show scan options popup instead of directly scanning
+    setShowScanOptionsAlert(true);
+  };
+
+  const scanFromPhotos = async () => {
+    setIsLoading(true);
+    setLoadingMessage("Opening photo gallery...");
+
+    try {
+      // Use Capacitor Camera to pick image from photos
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos
+      });
+
+      if (!image.dataUrl) {
+        setToastMessage("No image selected");
+        setShowToast1(true);
+        return;
+      }
+
+      setLoadingMessage("Scanning QR code from image...");
+
+      try {
+        // Convert data URL to File/Blob for QrScanner
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+
+        // Scan QR code from the image
+        const qrResult = await QrScanner.scanImage(blob, {
+          returnDetailedScanResult: true,
+        });
+
+        const scannedUrl = qrResult.data?.trim();
+
+        if (scannedUrl) {
+          await processScannedUrl(scannedUrl);
+        } else {
+          setToastMessage("No QR code found in the selected image");
+          setShowToast1(true);
+        }
+
+      } catch (scanError) {
+        console.error('QR scan error:', scanError);
+        setToastMessage("Could not detect QR code in the selected image. Please try another image.");
+        setShowToast1(true);
+      }
+
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      setToastMessage("Error accessing photo gallery. Please try again.");
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const scanFromCamera = async () => {
+    setIsLoading(true);
+    setLoadingMessage("Preparing camera scanner...");
+
+    try {
+      // Check if we're on a supported platform
+      if (!isPlatform('hybrid')) {
+        setToastMessage("Camera scanning is only available on mobile devices");
+        setShowToast1(true);
+        return;
+      }
+
+      setLoadingMessage("Opening camera scanner...");
+
+      // Start barcode scanning using Capacitor Barcode Scanner
+      const result = await CapacitorBarcodeScanner.scanBarcode({
+        hint: 17, // ALL types
+        scanInstructions: "Point your camera at a QR code to scan",
+        scanButton: true,
+        scanText: "Scanning...",
+        cameraDirection: 1, // BACK camera
+      });
+
+      if (result.ScanResult && result.ScanResult.trim() !== '') {
+        const scannedUrl = result.ScanResult.trim();
+        await processScannedUrl(scannedUrl);
+      } else {
+        setToastMessage("No QR code scanned or scanning was cancelled");
+        setShowToast1(true);
+      }
+
+    } catch (error) {
+      console.error('Error scanning with camera:', error);
+      setToastMessage("Error scanning QR code with camera. Please try again.");
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const processScannedUrl = async (scannedUrl: string) => {
+    setLoadingMessage("Processing scanned QR code...");
+
+    // Validate if it's a valid URL
+    try {
+      new URL(scannedUrl);
+    } catch (urlError) {
+      setToastMessage("Invalid QR code: Not a valid URL");
+      setShowToast1(true);
+      return;
+    }
+
+    setLoadingMessage("Fetching spreadsheet data...");
+
+    // Fetch the spreadsheet data from the scanned URL
+    try {
+      const response = await fetch(scannedUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const spreadsheetData = await response.text();
+
+      if (!spreadsheetData || spreadsheetData.trim() === '') {
+        throw new Error("No data found at the scanned URL");
+      }
+
+      setLoadingMessage("Loading spreadsheet...");
+
+      // Load the spreadsheet data into SocialCalc
+      // Generate a filename from timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const scannedFileName = `scanned_${timestamp}`;
+
+      // Use AppGeneral to load the scanned content
+      AppGeneral.viewFile(scannedFileName, spreadsheetData);
+      props.updateSelectedFile(scannedFileName);
+
+      setToastMessage("Spreadsheet loaded successfully from QR code!");
+      setShowToast1(true);
+
+    } catch (fetchError) {
+      console.error('Error fetching spreadsheet data:', fetchError);
+      setToastMessage("Error loading spreadsheet from scanned URL. Please check the URL or network connection.");
+      setShowToast1(true);
+    }
+  };
+
+  const createBarcode = async () => {
+    setIsLoading(true);
+    setLoadingMessage("Creating barcode...");
+
+    try {
+      const currentFileName = getCurrentFileName();
+      console.log('Current file name:', currentFileName);
+
+      if (!currentFileName || currentFileName === 'default') {
+        setToastMessage("Please save your file first before creating a barcode");
+        setShowToast1(true);
+        return;
+      }
+
+      // Get current spreadsheet content
+      const spreadsheetContent = AppGeneral.getSpreadsheetContent();
+      console.log('Spreadsheet content length:', spreadsheetContent?.length);
+
+      if (!spreadsheetContent) {
+        setToastMessage("No content available to create barcode");
+        setShowToast1(true);
+        return;
+      }
+
+      setLoadingMessage("Uploading file for barcode generation...");
+
+      // Check if current file is password protected
+      let isPasswordProtected = false;
+      try {
+        const fileData = await props.store._getFile(currentFileName);
+        isPasswordProtected = fileData?.isPasswordProtected || false;
+        console.log('Is password protected:', isPasswordProtected);
+      } catch (err) {
+        console.log('Could not determine password protection status, assuming false');
+        isPasswordProtected = false;
+      }
+
+      console.log('Calling createBarCode API with:', {
+        fileName: currentFileName,
+        contentLength: spreadsheetContent.length,
+        isPasswordProtected
+      });
+
+      // Call the createBarCode API endpoint
+      const response = await ApiService.createBarCode(
+        currentFileName,
+        spreadsheetContent,
+        isPasswordProtected
+      );
+
+      console.log('CreateBarCode API response:', response);
+
+      if (response && response.success && response.data && response.data.signedUrl) {
+        console.log('Signed URL received:', response.data.signedUrl);
+        setOriginalSignedUrl(response.data.signedUrl);
+
+        setLoadingMessage("Generating QR code from URL...");
+
+        // Generate QR code from the signed URL
+        try {
+          const qrCodeOptions = {
+            width: 300,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          };
+
+          const qrDataUrl = await QRCode.toDataURL(response.data.signedUrl, qrCodeOptions);
+          console.log('QR code generated successfully');
+
+          setQrCodeDataUrl(qrDataUrl);
+          setGeneratedBarcodeUrl(qrDataUrl); // For backward compatibility
+          setShowBarcodeDisplayModal(true);
+          setToastMessage("Barcode created successfully!");
+          setShowToast1(true);
+        } catch (qrError) {
+          console.error('Error generating QR code:', qrError);
+          throw new Error('Failed to generate QR code from URL');
+        }
+      } else {
+        console.error('Invalid response format:', response);
+        throw new Error(response?.message || 'Invalid response from server');
+      }
+
+    } catch (error) {
+      console.error('Error creating barcode:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+
+      let errorMessage = "Error creating barcode. ";
+      if (error.response?.status === 401) {
+        errorMessage = "Please login first to create a barcode.";
+      } else if (error.response?.status === 400) {
+        errorMessage = "Invalid file data. Please check your file and try again.";
+      } else if (error.response?.status === 500) {
+        errorMessage = "Server error. Please try again later.";
+      } else {
+        errorMessage += error.message || "Please try again.";
+      }
+
+      setToastMessage(errorMessage);
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const shareBarcode = async () => {
+    if (!originalSignedUrl && !qrCodeDataUrl) {
+      setToastMessage("No barcode to share");
+      setShowToast1(true);
+      return;
+    }
+
+    try {
+      // Share the original signed URL (what the QR code contains)
+      const urlToShare = originalSignedUrl || generatedBarcodeUrl;
+
+      await Share.share({
+        title: `${APP_NAME} - Spreadsheet Barcode`,
+        text: `Access spreadsheet via this link or scan the QR code: ${getCurrentFileName()}`,
+        url: urlToShare,
+        dialogTitle: 'Share Barcode Link'
+      });
+    } catch (error) {
+      console.error('Error sharing barcode:', error);
+      setToastMessage("Error sharing barcode");
+      setShowToast1(true);
+    }
+  };
+
   return (
     <React.Fragment>
       <IonLoading
@@ -970,6 +1271,13 @@ ${APP_NAME} Team`,
             icon: imageOutline,
             handler: () => {
               addLogo();
+            },
+          },
+          {
+            text: "Barcode",
+            icon: qrCodeOutline,
+            handler: () => {
+              handleBarcodeOption();
             },
           },
         ]}
@@ -1219,6 +1527,171 @@ ${APP_NAME} Team`,
           },
         ]}
       />
+
+      {/* Barcode Options Alert */}
+      <IonAlert
+        animated
+        isOpen={showBarcodeAlert}
+        onDidDismiss={() => setShowBarcodeAlert(false)}
+        header="Barcode Options"
+        message="What would you like to do?"
+        buttons={[
+          {
+            text: "Create Barcode",
+            handler: () => {
+              createBarcode();
+            },
+          },
+          {
+            text: "Scan Barcode",
+            handler: () => {
+              scanBarcode();
+            },
+          },
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              console.log("Barcode cancelled");
+            },
+          },
+        ]}
+      />
+
+      {/* Scan Options Alert */}
+      <IonAlert
+        animated
+        isOpen={showScanOptionsAlert}
+        onDidDismiss={() => setShowScanOptionsAlert(false)}
+        header="Scan QR Code"
+        message="Choose scanning method:"
+        buttons={[
+          {
+            text: "Photos",
+            handler: () => {
+              setShowScanOptionsAlert(false);
+              scanFromPhotos();
+            },
+          },
+          {
+            text: "Camera",
+            handler: () => {
+              setShowScanOptionsAlert(false);
+              scanFromCamera();
+            },
+          },
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              console.log("Scan cancelled");
+            },
+          },
+        ]}
+      />
+
+      {/* Barcode Display Modal */}
+      <IonModal
+        isOpen={showBarcodeDisplayModal}
+        onDidDismiss={() => {
+          setShowBarcodeDisplayModal(false);
+          setGeneratedBarcodeUrl("");
+          setQrCodeDataUrl("");
+          setOriginalSignedUrl("");
+        }}
+      >
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Barcode Generated</IonTitle>
+            <IonButtons slot="end">
+              <IonButton
+                onClick={() => {
+                  setShowBarcodeDisplayModal(false);
+                  setGeneratedBarcodeUrl("");
+                  setQrCodeDataUrl("");
+                  setOriginalSignedUrl("");
+                }}
+              >
+                Close
+              </IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <h3>QR Code Generated Successfully!</h3>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
+              Scan this QR code to access your spreadsheet
+            </p>
+
+            {qrCodeDataUrl ? (
+              <div style={{ margin: '20px 0' }}>
+                <img
+                  src={qrCodeDataUrl}
+                  alt="Generated QR Code"
+                  style={{
+                    maxWidth: '300px',
+                    maxHeight: '300px',
+                    width: '100%',
+                    height: 'auto',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                  onLoad={() => console.log('QR code image loaded successfully')}
+                  onError={(e) => {
+                    console.error('Error loading QR code image:', e);
+                    console.error('QR Code Data URL length:', qrCodeDataUrl?.length);
+                  }}
+                />
+                <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                  <p style={{ fontSize: '12px', color: '#666', margin: '0 0 5px 0' }}>
+                    <strong>Contains URL:</strong>
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#999', wordBreak: 'break-all', margin: '0' }}>
+                    {originalSignedUrl}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div style={{ margin: '20px 0', padding: '20px', border: '2px dashed #ccc', borderRadius: '8px' }}>
+                <p style={{ color: '#666' }}>No QR code generated</p>
+              </div>
+            )}
+
+            <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+              Barcode for: <strong>{getCurrentFileName()}</strong>
+            </p>
+
+            <div style={{ marginTop: '30px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <IonButton
+                expand="block"
+                color="primary"
+                onClick={() => shareBarcode()}
+                style={{ flex: 1, maxWidth: '200px' }}
+              >
+                Share Link
+              </IonButton>
+              <IonButton
+                expand="block"
+                color="medium"
+                fill="outline"
+                onClick={() => {
+                  setShowBarcodeDisplayModal(false);
+                  setGeneratedBarcodeUrl("");
+                  setQrCodeDataUrl("");
+                  setOriginalSignedUrl("");
+                }}
+                style={{ flex: 1, maxWidth: '200px' }}
+              >
+                Close
+              </IonButton>
+            </div>
+          </div>
+        </IonContent>
+      </IonModal>
     </React.Fragment>
   );
 };

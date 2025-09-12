@@ -254,6 +254,35 @@ class ApiService {
         }
     }
 
+    // Barcode Operations
+    static async createBarCode(fileName: string, fileContent: string, isPasswordProtected: boolean = false): Promise<LogoUploadResponse> {
+        try {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            if (typeof fileContent !== 'string') {
+                throw new Error('Invalid fileContent provided - must be string');
+            }
+
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            const response = await apiClient.post<LogoUploadResponse>('/api/v1/createBarCode', {
+                token,
+                fileName,
+                fileContent,
+                isPasswordProtected
+            });
+
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, 'create barcode');
+        }
+    }
+
     // ============================================
     // UNIFIED DATABASE OPERATIONS
     // ============================================
