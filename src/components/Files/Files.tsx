@@ -243,6 +243,8 @@ const Files: React.FC<{
         return 'MongoDB';
       case 'neo4j':
         return 'Neo4j';
+      case 'orbitdb':
+        return 'OrbitDB';
       default:
         return database;
     }
@@ -400,6 +402,7 @@ const Files: React.FC<{
                       <IonSelectOption value="firebase">🔥 Firebase</IonSelectOption>
                       <IonSelectOption value="mongo">🍃 MongoDB</IonSelectOption>
                       <IonSelectOption value="neo4j">🔗 Neo4j</IonSelectOption>
+                      <IonSelectOption value="orbitdb">🌌 OrbitDB</IonSelectOption>
                     </IonSelect>
                   </IonCol>
                   <IonCol size="6">

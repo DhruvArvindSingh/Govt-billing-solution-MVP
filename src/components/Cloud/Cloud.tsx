@@ -36,17 +36,19 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
     const [mongoFiles, setMongoFiles] = useState<{ [key: string]: number }>({});
     const [neo4jFiles, setNeo4jFiles] = useState<{ [key: string]: number }>({});
+    const [orbitdbFiles, setOrbitdbFiles] = useState<{ [key: string]: number }>({});
     const [s3PasswordProtected, setS3PasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [postgresPasswordProtected, setPostgresPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [firebasePasswordProtected, setFirebasePasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [mongoPasswordProtected, setMongoPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [neo4jPasswordProtected, setNeo4jPasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [orbitdbPasswordProtected, setOrbitdbPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -111,6 +113,10 @@ const Cloud: React.FC<{
                     setNeo4jFiles(allFiles);
                     setNeo4jPasswordProtected(passwordProtectedMap);
                     break;
+                case 'orbitdb':
+                    setOrbitdbFiles(allFiles);
+                    setOrbitdbPasswordProtected(passwordProtectedMap);
+                    break;
             }
         } catch (err) {
             console.error(`Failed to load files from ${database}`, err);
@@ -130,6 +136,7 @@ const Cloud: React.FC<{
     const loadFilesFromFirebase = () => loadFilesFromDatabase('firebase');
     const loadFilesFromMongo = () => loadFilesFromDatabase('mongo');
     const loadFilesFromNeo4j = () => loadFilesFromDatabase('neo4j');
+    const loadFilesFromOrbitdb = () => loadFilesFromDatabase('orbitdb');
 
     // Load files from local storage
     const loadLocalFiles = async () => {
@@ -144,7 +151,7 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j') => {
+    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb') => {
         // Deselect all files when switching tabs
         setSelectedCloudFiles({});
 
@@ -159,6 +166,8 @@ const Cloud: React.FC<{
             await loadFilesFromMongo();
         } else if (tab === 'neo4j' && Object.keys(neo4jFiles).length === 0) {
             await loadFilesFromNeo4j();
+        } else if (tab === 'orbitdb' && Object.keys(orbitdbFiles).length === 0) {
+            await loadFilesFromOrbitdb();
         }
     };
 
@@ -175,6 +184,8 @@ const Cloud: React.FC<{
                 return mongoFiles;
             case 'neo4j':
                 return neo4jFiles;
+            case 'orbitdb':
+                return orbitdbFiles;
             default:
                 return s3Files;
         }
@@ -226,6 +237,9 @@ const Cloud: React.FC<{
                 case 'neo4j':
                     success = await saveFileToNeo4j(fullFileName, currentData, isPasswordProtected);
                     break;
+                case 'orbitdb':
+                    success = await saveFileToOrbitdb(fullFileName, currentData, isPasswordProtected);
+                    break;
             }
 
             if (success) {
@@ -245,6 +259,9 @@ const Cloud: React.FC<{
                         break;
                     case 'neo4j':
                         provider = 'Neo4j';
+                        break;
+                    case 'orbitdb':
+                        provider = 'OrbitDB';
                         break;
                 }
                 setToastMessage(`Invoice saved to ${provider} as "${fullFileName}"`);
@@ -291,6 +308,8 @@ const Cloud: React.FC<{
         saveFileToDatabase('mongo', fileName, content, isPasswordProtected);
     const saveFileToNeo4j = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
         saveFileToDatabase('neo4j', fileName, content, isPasswordProtected);
+    const saveFileToOrbitdb = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
+        saveFileToDatabase('orbitdb', fileName, content, isPasswordProtected);
 
     // Edit file from cloud
     const editFile = async (key: string) => {
@@ -378,6 +397,9 @@ const Cloud: React.FC<{
                 case 'neo4j':
                     filesObject = neo4jFiles;
                     break;
+                case 'orbitdb':
+                    filesObject = orbitdbFiles;
+                    break;
                 default:
                     filesObject = {};
             }
@@ -417,6 +439,8 @@ const Cloud: React.FC<{
         getFileFromDatabase('mongo', fileName, isPasswordProtected);
     const getFileFromNeo4j = (fileName: string, isPasswordProtected: boolean = false) =>
         getFileFromDatabase('neo4j', fileName, isPasswordProtected);
+    const getFileFromOrbitdb = (fileName: string, isPasswordProtected: boolean = false) =>
+        getFileFromDatabase('orbitdb', fileName, isPasswordProtected);
 
     // Delete file
     const deleteFile = (key: string) => {
@@ -437,6 +461,9 @@ const Cloud: React.FC<{
                 break;
             case 'neo4j':
                 provider = 'Neo4j';
+                break;
+            case 'orbitdb':
+                provider = 'OrbitDB';
                 break;
         }
         setAlertMessage(`Do you want to delete the ${key} file from ${provider}?`);
@@ -508,6 +535,8 @@ const Cloud: React.FC<{
                 return mongoPasswordProtected[fileName] || false;
             case 'neo4j':
                 return neo4jPasswordProtected[fileName] || false;
+            case 'orbitdb':
+                return orbitdbPasswordProtected[fileName] || false;
             default:
                 return false;
         }
@@ -605,7 +634,7 @@ const Cloud: React.FC<{
 
     // Get available migration target databases (excluding current active tab)
     const getMigrationTargetDatabases = (): DatabaseType[] => {
-        const allDatabases: DatabaseType[] = ['s3', 'postgres', 'firebase', 'mongo', 'neo4j'];
+        const allDatabases: DatabaseType[] = ['s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb'];
         return allDatabases.filter(db => db !== activeTab);
     };
 
@@ -617,6 +646,7 @@ const Cloud: React.FC<{
             case 'firebase': return 'Firebase';
             case 'mongo': return 'MongoDB';
             case 'neo4j': return 'Neo4j';
+            case 'orbitdb': return 'OrbitDB';
             default: return database;
         }
     };
@@ -886,6 +916,9 @@ const Cloud: React.FC<{
                 case 'neo4j':
                     loadFilesFromNeo4j();
                     break;
+                case 'orbitdb':
+                    loadFilesFromOrbitdb();
+                    break;
             }
         }
     }, [showModal, activeTab]);
@@ -967,6 +1000,13 @@ const Cloud: React.FC<{
                             disabled={loading}
                         >
                             🔗 Neo4j
+                        </button>
+                        <button
+                            className={`tab-button ${activeTab === 'orbitdb' ? 'active' : ''}`}
+                            onClick={() => switchTab('orbitdb')}
+                            disabled={loading}
+                        >
+                            🌌 OrbitDB
                         </button>
                     </div>
 
@@ -1050,7 +1090,8 @@ const Cloud: React.FC<{
                                             activeTab === 'postgres' ? 'PostgreSQL' :
                                                 activeTab === 'firebase' ? 'Firebase' :
                                                     activeTab === 'mongo' ? 'MongoDB' :
-                                                        'Neo4j'
+                                                        activeTab === 'neo4j' ? 'Neo4j' :
+                                                            'OrbitDB'
                                     }...
                                 </div>
                             )}
@@ -1068,7 +1109,8 @@ const Cloud: React.FC<{
                                             activeTab === 'postgres' ? 'PostgreSQL' :
                                                 activeTab === 'firebase' ? 'Firebase' :
                                                     activeTab === 'mongo' ? 'MongoDB' :
-                                                        'Neo4j'
+                                                        activeTab === 'neo4j' ? 'Neo4j' :
+                                                            'OrbitDB'
                                     }
                                 </div>
                             )}

@@ -1,5 +1,7 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../../config/environment';
+import OrbitDBService from '../../services/OrbitDBService';
+import type { FileRecord } from '../../services/OrbitDBService';
 
 // Configure axios defaults - now using centralized environment config
 console.log('ApiService initialized with API_BASE_URL:', API_BASE_URL);
@@ -31,6 +33,10 @@ interface MongoFile {
 }
 
 interface Neo4jFile {
+    [fileName: string]: number; // timestamp
+}
+
+interface OrbitDBFile {
     [fileName: string]: number; // timestamp
 }
 
@@ -69,7 +75,7 @@ interface AuthResponse {
 }
 
 // Database type for unified functions
-type DatabaseType = 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j';
+type DatabaseType = 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -293,11 +299,18 @@ class ApiService {
 
     /**
      * Unified function to list all files from any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
      * @returns Promise<FileListResponse>
      */
     static async listAllFiles(database: DatabaseType): Promise<FileListResponse> {
         try {
+            // Handle OrbitDB locally
+            if (database === 'orbitdb') {
+                const orbitService = OrbitDBService.getInstance();
+                const result = await orbitService.listAllFiles();
+                return result as FileListResponse;
+            }
+
             const token = this.getToken();
             if (!token) {
                 throw new Error('Please login to continue');
@@ -333,7 +346,7 @@ class ApiService {
 
     /**
      * Unified function to get a file from any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
      * @param fileName - Name of the file to retrieve
      * @param isPasswordProtected - Whether the file is password protected
      * @returns Promise<FileContent>
@@ -345,6 +358,22 @@ class ApiService {
             if (!fileName || typeof fileName !== 'string') {
                 throw new Error('Invalid fileName provided');
             }
+
+            // Handle OrbitDB locally
+            if (database === 'orbitdb') {
+                const orbitService = OrbitDBService.getInstance();
+                const fileRecord = await orbitService.getFile(fileName);
+
+                if (!fileRecord) {
+                    throw new Error(`File not found in OrbitDB: ${fileName}`);
+                }
+
+                return {
+                    content: fileRecord.fileContent,
+                    fileName: fileRecord.fileName
+                };
+            }
+
             const token = this.getToken();
             if (!token) {
                 throw new Error('Please login to continue');
@@ -402,7 +431,7 @@ class ApiService {
 
     /**
      * Unified function to upload a file to any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
      * @param fileName - Name of the file to upload
      * @param content - Content of the file
      * @param isPasswordProtected - Whether the file is password protected
@@ -416,6 +445,17 @@ class ApiService {
 
             if (typeof content !== 'string') {
                 throw new Error('Invalid content provided - must be string');
+            }
+
+            // Handle OrbitDB locally
+            if (database === 'orbitdb') {
+                const orbitService = OrbitDBService.getInstance();
+                await orbitService.uploadFile(fileName, content, isPasswordProtected);
+
+                return {
+                    success: true,
+                    message: `File uploaded to OrbitDB successfully: ${fileName}`
+                };
             }
 
             const token = this.getToken();
@@ -459,7 +499,7 @@ class ApiService {
 
     /**
      * Unified function to delete a file from any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
      * @param fileName - Name of the file to delete
      * @param isPasswordProtected - Whether the file is password protected
      * @returns Promise<ApiResponse>
@@ -468,6 +508,17 @@ class ApiService {
         try {
             if (!fileName || typeof fileName !== 'string') {
                 throw new Error('Invalid fileName provided');
+            }
+
+            // Handle OrbitDB locally
+            if (database === 'orbitdb') {
+                const orbitService = OrbitDBService.getInstance();
+                await orbitService.deleteFile(fileName);
+
+                return {
+                    success: true,
+                    message: `File deleted from OrbitDB successfully: ${fileName}`
+                };
             }
 
             const token = this.getToken();
