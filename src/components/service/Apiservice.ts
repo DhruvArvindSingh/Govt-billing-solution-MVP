@@ -429,6 +429,13 @@ class ApiService {
         }
     }
 
+    FileName: {
+        fileContent: string;
+        is_password_protected: boolean;
+        created_at: string;
+        updated_at: string;
+    }
+
     /**
      * Unified function to upload a file to any database
      * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
