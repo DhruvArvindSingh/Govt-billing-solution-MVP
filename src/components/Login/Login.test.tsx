@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import Login from './Login'
+import ApiService from '../service/Apiservice'
 
-// Mock dependencies
-const mockApiService = {
-    signin: vi.fn(),
-    signup: vi.fn(),
-    logout: vi.fn()
-}
-
+// Mock ApiService
 vi.mock('../service/Apiservice', () => ({
-    default: mockApiService
+    default: {
+        signin: vi.fn(),
+        signup: vi.fn(),
+        logout: vi.fn()
+    }
 }))
+
+// Get the mocked ApiService
+const mockApiService = vi.mocked(ApiService)
 
 // Mock alert
 const mockAlert = vi.fn()
@@ -41,7 +43,8 @@ describe('Login', () => {
 
         const loginButton = screen.getByText('Login')
         expect(loginButton).toBeInTheDocument()
-        expect(screen.getByTitle('log-in')).toBeInTheDocument()
+        // Check for the login button itself
+        expect(loginButton).toHaveClass('login-button')
     })
 
     it('renders logout button when logged in', () => {
@@ -49,15 +52,18 @@ describe('Login', () => {
 
         const logoutButton = screen.getByText('Logout')
         expect(logoutButton).toBeInTheDocument()
-        expect(screen.getByTitle('log-out')).toBeInTheDocument()
+        // Check for the logout button itself
+        expect(logoutButton).toHaveClass('login-button')
     })
 
     it('shows loading spinner on logout button when loading', () => {
         render(<Login {...mockProps} isLoggedIn={true} loading={true} />)
 
-        expect(screen.getByText('Logout')).toBeInTheDocument()
-        // The spinner should be present but might be hard to test directly
-        expect(screen.getByRole('button')).toBeDisabled()
+        // When loading, the logout button should be disabled
+        const button = screen.getByRole('button')
+        expect(button).toBeDisabled()
+        // Check for the spinner element
+        expect(screen.getByTestId('ion-spinner')).toBeInTheDocument()
     })
 
     it('opens login modal when login button is clicked', async () => {
@@ -67,7 +73,7 @@ describe('Login', () => {
         fireEvent.click(loginButton)
 
         await waitFor(() => {
-            expect(screen.getByText('Login / Sign Up')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Login / Sign Up' })).toBeInTheDocument()
             expect(screen.getByLabelText('Email')).toBeInTheDocument()
             expect(screen.getByLabelText('Password')).toBeInTheDocument()
         })
@@ -83,7 +89,7 @@ describe('Login', () => {
             expect(screen.getAllByText('Login / Sign Up')).toHaveLength(2) // Title and button
         })
 
-        const closeButton = screen.getByTitle('close')
+        const closeButton = screen.getByTestId('ion-icon-close').closest('button')!
         fireEvent.click(closeButton)
 
         await waitFor(() => {
@@ -204,7 +210,7 @@ describe('Login', () => {
 
     it('handles successful login', async () => {
         // mockApiService is already available from the global mock
-        mockApiService.signin.mockResolvedValue({ success: true })
+        mockApiService.signin.mockResolvedValue({ success: true, data: { email: 'test@example.com', token: 'test-token' } })
 
         render(<Login {...mockProps} />)
 
@@ -389,7 +395,7 @@ describe('Login', () => {
         // mockApiService is already available from the global mock
         // Delay the response to show loading state
         mockApiService.signin.mockImplementation(
-            () => new Promise(resolve => setTimeout(() => resolve({ success: true }), 100))
+            () => new Promise<any>(resolve => setTimeout(() => resolve({ success: true, data: { email: 'test@example.com', token: 'test-token' } }), 100))
         )
 
         render(<Login {...mockProps} />)
@@ -423,7 +429,7 @@ describe('Login', () => {
     it('disables form inputs during loading', async () => {
         // mockApiService is already available from the global mock
         mockApiService.signin.mockImplementation(
-            () => new Promise(resolve => setTimeout(() => resolve({ success: true }), 100))
+            () => new Promise<any>(resolve => setTimeout(() => resolve({ success: true, data: { email: 'test@example.com', token: 'test-token' } }), 100))
         )
 
         render(<Login {...mockProps} />)
@@ -502,7 +508,7 @@ describe('Login', () => {
 
     it('handles form submission with Enter key', async () => {
         // mockApiService is already available from the global mock
-        mockApiService.signin.mockResolvedValue({ success: true })
+        mockApiService.signin.mockResolvedValue({ success: true, data: { email: 'test@example.com', token: 'test-token' } })
 
         render(<Login {...mockProps} />)
 

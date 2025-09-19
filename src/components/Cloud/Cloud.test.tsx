@@ -33,6 +33,15 @@ vi.mock('@ionic/react', () => ({
     IonItem: ({ children }: any) => <div data-testid="ion-item">{children}</div>,
     IonList: ({ children }: any) => <div data-testid="ion-list">{children}</div>,
     IonLabel: ({ children }: any) => <label>{children}</label>,
+    IonSelect: ({ children, placeholder, value, onSelectionChange }: any) => (
+        <select data-testid="ion-select" value={value} onChange={onSelectionChange}>
+            <option value="">{placeholder}</option>
+            {children}
+        </select>
+    ),
+    IonSelectOption: ({ children, value }: any) => (
+        <option value={value}>{children}</option>
+    ),
     IonInput: ({ value, placeholder, onIonInput, type }: any) => (
         <input
             type={type}

@@ -3,6 +3,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import Menu from './Menu'
 
 // Mock dependencies
+vi.mock('@ionic-native/printer', () => ({
+    Printer: {
+        print: vi.fn()
+    }
+}))
+
 vi.mock('../socialcalc/index.js', () => ({
     default: {
         getSpreadsheetContent: vi.fn(() => 'mock-spreadsheet-content'),

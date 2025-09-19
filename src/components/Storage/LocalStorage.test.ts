@@ -404,6 +404,10 @@ describe('LocalStorage', () => {
 
             it('should skip invalid file entries', async () => {
                 const mockPreferences = Preferences as any
+                // Reset all mocks completely
+                mockPreferences.get.mockReset()
+                mockPreferences.keys.mockReset()
+
                 mockPreferences.keys.mockResolvedValue({
                     keys: ['valid.txt', 'invalid.txt']
                 })
@@ -418,22 +422,12 @@ describe('LocalStorage', () => {
                             isPasswordProtected: false
                         })
                     })
-                    .mockResolvedValueOnce({
-                        value: JSON.stringify({
-                            created: '2023-01-01',
-                            modified: '2023-01-04',
-                            content: 'content2',
-                            name: 'invalid.txt',
-                            billType: 1,
-                            isPasswordProtected: false
-                        })
-                    })
+                    .mockRejectedValueOnce(new Error('Invalid JSON')) // This will be skipped
 
                 const result = await localStorage._getAllFiles()
 
                 expect(result).toEqual({
-                    'valid.txt': '2023-01-02',
-                    'invalid.txt': '2023-01-04'
+                    'valid.txt': '2023-01-02'
                 })
             })
 
@@ -488,6 +482,8 @@ describe('LocalStorage', () => {
             describe('_getLastOpenedFile', () => {
                 it('should return last opened file', async () => {
                     const mockPreferences = Preferences as any
+                    // Reset all mocks completely
+                    mockPreferences.get.mockReset()
                     mockPreferences.get.mockResolvedValue({ value: 'test.txt' })
 
                     const result = await localStorage._getLastOpenedFile()
