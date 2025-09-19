@@ -8,9 +8,7 @@ import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert, IonModal, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons } from "@ionic/react";
 import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline, imageOutline, qrCodeOutline } from "ionicons/icons";
 import { APP_NAME, LOGO } from "../../app-data.js";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner';
@@ -18,7 +16,7 @@ import QRCode from 'qrcode';
 import QrScanner from 'qr-scanner';
 import PasswordModal from '../PasswordModal/PasswordModal';
 import { exportSpreadsheetAsPDF, exportSpreadsheetAsPDFForEmail } from '../../services/exportAsPdf';
-import { exportCSV, parseSocialCalcCSV, cleanCSVContent, validateCSVContent } from '../../services/exportAsCsv';
+import { exportCSV, cleanCSVContent, validateCSVContent } from '../../services/exportAsCsv';
 import { exportAllSheetsAsPDF as exportWorkbookPDFService } from '../../services/exportAllSheetsAsPdf';
 import ApiService from '../service/Apiservice';
 // import JSZip from 'jszip'; // Will be added later for zip functionality
@@ -46,7 +44,6 @@ const Menu: React.FC<{
   const [showAlert2, setShowAlert2] = useState(false);
   const [showAlert3, setShowAlert3] = useState(false);
   const [showAlert4, setShowAlert4] = useState(false);
-  const [textFieldValue, setTextFieldValue] = useState("");
   const [showToast1, setShowToast1] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);

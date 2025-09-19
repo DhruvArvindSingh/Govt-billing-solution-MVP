@@ -11,8 +11,6 @@ import {
     IonItem,
     IonLabel,
     IonCheckbox,
-    IonFab,
-    IonFabButton,
 } from '@ionic/react';
 import { layers, close, checkmark } from 'ionicons/icons';
 import './FooterSelector.css';

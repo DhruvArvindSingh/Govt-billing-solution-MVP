@@ -1,7 +1,6 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import { API_BASE_URL } from '../../config/environment';
 import OrbitDBService from '../../services/OrbitDBService';
-import type { FileRecord } from '../../services/OrbitDBService';
 
 // Configure axios defaults - now using centralized environment config
 console.log('ApiService initialized with API_BASE_URL:', API_BASE_URL);
@@ -16,29 +15,7 @@ interface ApiResponse<T = any> {
     error?: string;
 }
 
-interface S3File {
-    [fileName: string]: number; // timestamp
-}
 
-interface PostgresFile {
-    [fileName: string]: number; // timestamp
-}
-
-interface FirebaseFile {
-    [fileName: string]: number; // timestamp
-}
-
-interface MongoFile {
-    [fileName: string]: number; // timestamp
-}
-
-interface Neo4jFile {
-    [fileName: string]: number; // timestamp
-}
-
-interface OrbitDBFile {
-    [fileName: string]: number; // timestamp
-}
 
 interface FileListResponse {
     files: { [fileName: string]: number };

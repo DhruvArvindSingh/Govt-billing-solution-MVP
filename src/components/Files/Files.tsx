@@ -6,12 +6,8 @@ import { Local } from "../Storage/LocalStorage";
 import {
   IonIcon,
   IonModal,
-  IonItem,
   IonButton,
-  IonList,
-  IonLabel,
   IonAlert,
-  IonItemGroup,
   IonSearchbar,
   IonHeader,
   IonToolbar,
