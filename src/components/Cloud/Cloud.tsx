@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./Cloud.css";
 import * as AppGeneral from "../socialcalc/index.js";
 import { DATA } from "../../app-data.js";
@@ -20,7 +20,7 @@ import {
     IonSelect,
     IonSelectOption,
 } from "@ionic/react";
-import { cloud, trash, create, cloudUpload, close, shield, download, shuffle } from "ionicons/icons";
+import { cloud, trash, create, cloudUpload, close, shield, download, shuffle, chevronBack, chevronForward } from "ionicons/icons";
 import { File } from "../Storage/LocalStorage";
 import PasswordModal from "../PasswordModal/PasswordModal";
 import CryptoJS from "crypto-js";
@@ -70,6 +70,11 @@ const Cloud: React.FC<{
     const [targetDatabase, setTargetDatabase] = useState<DatabaseType | null>(null);
     const [migrationConflictFiles, setMigrationConflictFiles] = useState<string[]>([]);
     const [showMigrationConflictAlert, setShowMigrationConflictAlert] = useState(false);
+
+    // Tab navigation scroll functionality
+    const tabNavigationRef = useRef<HTMLDivElement>(null);
+    const [showLeftArrow, setShowLeftArrow] = useState(false);
+    const [showRightArrow, setShowRightArrow] = useState(false);
 
     // Unified function to load files from any database
     const loadFilesFromDatabase = async (database: DatabaseType) => {
@@ -511,6 +516,59 @@ const Cloud: React.FC<{
             return false;
         }
     };
+
+    // Tab navigation scroll functions
+    const checkScrollArrows = () => {
+        if (tabNavigationRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = tabNavigationRef.current;
+            setShowLeftArrow(scrollLeft > 0);
+            setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+        }
+    };
+
+    const scrollLeft = () => {
+        if (tabNavigationRef.current) {
+            tabNavigationRef.current.scrollBy({
+                left: -120,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    const scrollRight = () => {
+        if (tabNavigationRef.current) {
+            tabNavigationRef.current.scrollBy({
+                left: 120,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    // Check scroll arrows on resize and scroll
+    useEffect(() => {
+        const handleResize = () => {
+            checkScrollArrows();
+        };
+
+        const handleScroll = () => {
+            checkScrollArrows();
+        };
+
+        window.addEventListener('resize', handleResize);
+        if (tabNavigationRef.current) {
+            tabNavigationRef.current.addEventListener('scroll', handleScroll);
+        }
+
+        // Initial check
+        checkScrollArrows();
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (tabNavigationRef.current) {
+                tabNavigationRef.current.removeEventListener('scroll', handleScroll);
+            }
+        };
+    }, []);
 
     const loadDefault = () => {
         const msc = DATA["home"]["default"]["msc"];
@@ -964,50 +1022,62 @@ const Cloud: React.FC<{
                 </IonHeader>
 
                 <IonContent className="cloud-content">
-                    {/* Tab Navigation */}
-                    <div className="tab-navigation">
-                        <button
-                            className={`tab-button ${activeTab === 's3' ? 'active' : ''}`}
-                            onClick={() => switchTab('s3')}
-                            disabled={loading}
-                        >
-                            🗄️ S3
-                        </button>
-                        <button
-                            className={`tab-button ${activeTab === 'postgres' ? 'active' : ''}`}
-                            onClick={() => switchTab('postgres')}
-                            disabled={loading}
-                        >
-                            🐘 PostgreSQL
-                        </button>
-                        <button
-                            className={`tab-button ${activeTab === 'firebase' ? 'active' : ''}`}
-                            onClick={() => switchTab('firebase')}
-                            disabled={loading}
-                        >
-                            🔥 Firebase
-                        </button>
-                        <button
-                            className={`tab-button ${activeTab === 'mongo' ? 'active' : ''}`}
-                            onClick={() => switchTab('mongo')}
-                            disabled={loading}
-                        >
-                            🍃 MongoDB
-                        </button>
-                        <button
-                            className={`tab-button ${activeTab === 'neo4j' ? 'active' : ''}`}
-                            onClick={() => switchTab('neo4j')}
-                            disabled={loading}
-                        >
-                            🔗 Neo4j
-                        </button>
-                        <button
-                            className={`tab-button ${activeTab === 'orbitdb' ? 'active' : ''}`}
-                            onClick={() => switchTab('orbitdb')}
-                            disabled={loading}
-                        >
-                            🌌 OrbitDB
-                        </button>
+                    {/* Tab Navigation with Scroll Arrows */}
+                    <div className="tab-navigation-container">
+                        {showLeftArrow && (
+                            <button className="tab-scroll-arrow left" onClick={scrollLeft}>
+                                <IonIcon icon={chevronBack} />
+                            </button>
+                        )}
+                        <div className="tab-navigation" ref={tabNavigationRef}>
+                            <button
+                                className={`tab-button ${activeTab === 's3' ? 'active' : ''}`}
+                                onClick={() => switchTab('s3')}
+                                disabled={loading}
+                            >
+                                🗄️ S3
+                            </button>
+                            <button
+                                className={`tab-button ${activeTab === 'postgres' ? 'active' : ''}`}
+                                onClick={() => switchTab('postgres')}
+                                disabled={loading}
+                            >
+                                🐘 PostgreSQL
+                            </button>
+                            <button
+                                className={`tab-button ${activeTab === 'firebase' ? 'active' : ''}`}
+                                onClick={() => switchTab('firebase')}
+                                disabled={loading}
+                            >
+                                🔥 Firebase
+                            </button>
+                            <button
+                                className={`tab-button ${activeTab === 'mongo' ? 'active' : ''}`}
+                                onClick={() => switchTab('mongo')}
+                                disabled={loading}
+                            >
+                                🍃 MongoDB
+                            </button>
+                            <button
+                                className={`tab-button ${activeTab === 'neo4j' ? 'active' : ''}`}
+                                onClick={() => switchTab('neo4j')}
+                                disabled={loading}
+                            >
+                                🔗 Neo4j
+                            </button>
+                            <button
+                                className={`tab-button ${activeTab === 'orbitdb' ? 'active' : ''}`}
+                                onClick={() => switchTab('orbitdb')}
+                                disabled={loading}
+                            >
+                                🌌 OrbitDB
+                            </button>
+                        </div>
+                        {showRightArrow && (
+                            <button className="tab-scroll-arrow right" onClick={scrollRight}>
+                                <IonIcon icon={chevronForward} />
+                            </button>
+                        )}
                     </div>
 
                     {/* Search and Upload */}
