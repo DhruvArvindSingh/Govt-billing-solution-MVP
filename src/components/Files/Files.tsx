@@ -19,8 +19,12 @@ import {
   IonGrid,
   IonSelect,
   IonSelectOption,
+  IonSegment,
+  IonSegmentButton,
+  IonLabel,
+  IonLoading,
 } from "@ionic/react";
-import { fileTrayFull, trash, create, shield, cloudUpload } from "ionicons/icons";
+import { fileTrayFull, trash, create, shield, cloudUpload, downloadOutline } from "ionicons/icons";
 import PasswordModal from "../PasswordModal/PasswordModal";
 import ApiService, { DatabaseType } from "../service/Apiservice";
 
@@ -45,6 +49,10 @@ const Files: React.FC<{
   const [uploadAlert, setUploadAlert] = useState(false);
   const [uploadAlertMessage, setUploadAlertMessage] = useState("");
   const [selectedDatabase, setSelectedDatabase] = useState<string>("s3");
+  const [activeTab, setActiveTab] = useState<string>("local");
+  const [issuedFiles, setIssuedFiles] = useState<{ [key: string]: string }>({});
+  const [loadingIssuedFiles, setLoadingIssuedFiles] = useState(false);
+  const [retrievingFileName, setRetrievingFileName] = useState<string>("");
 
   const editFile = (key) => {
     props.store._getFile(key).then((data: any) => {
@@ -246,6 +254,72 @@ const Files: React.FC<{
     }
   };
 
+  // Load issued documents from Lighthouse
+  const loadIssuedFiles = async () => {
+    if (!props.isLoggedIn) {
+      setUploadAlertMessage("Please login first to view issued documents.");
+      setUploadAlert(true);
+      return;
+    }
+
+    setLoadingIssuedFiles(true);
+    try {
+      const response = await ApiService.listAllLighthouse();
+      if (response && response.files) {
+        // Convert the files object from {fileName: number} to {fileName: string} format for dates
+        const convertedFiles: { [key: string]: string } = {};
+        Object.entries(response.files).forEach(([fileName, timestamp]) => {
+          convertedFiles[fileName] = typeof timestamp === 'number' ? new Date(timestamp).toISOString() : String(timestamp);
+        });
+        setIssuedFiles(convertedFiles);
+      } else {
+        console.error("Failed to load issued files:", response);
+        setIssuedFiles({});
+      }
+    } catch (error) {
+      console.error("Error loading issued files:", error);
+      setUploadAlertMessage("Error loading issued documents. Please try again.");
+      setUploadAlert(true);
+      setIssuedFiles({});
+    } finally {
+      setLoadingIssuedFiles(false);
+    }
+  };
+
+  // Retrieve and view an issued document
+  const retrieveIssuedFile = async (fileName: string) => {
+    if (!props.isLoggedIn) {
+      setUploadAlertMessage("Please login first to retrieve documents.");
+      setUploadAlert(true);
+      return;
+    }
+
+    setRetrievingFileName(fileName);
+    setLoadingIssuedFiles(true);
+    try {
+      const response = await ApiService.getFileLighthouse(fileName);
+
+      if (response.content) {
+        // Close the modal and load the retrieved content
+        setListFiles(false);
+        AppGeneral.viewFile(fileName, response.content);
+        props.updateSelectedFile(fileName);
+
+        setUploadAlertMessage(`Issued document "${fileName}" retrieved successfully.`);
+        setUploadAlert(true);
+      } else {
+        throw new Error("No content received from the server");
+      }
+    } catch (error) {
+      console.error("Error retrieving issued file:", error);
+      setUploadAlertMessage(`Error retrieving document "${fileName}". Please try again.`);
+      setUploadAlert(true);
+    } finally {
+      setLoadingIssuedFiles(false);
+      setRetrievingFileName("");
+    }
+  };
+
   const temp = async () => {
     const files = await props.store._getAllFiles();
 
@@ -359,6 +433,100 @@ const Files: React.FC<{
 
     const fileList = await Promise.all(fileListPromises);
 
+    // Render issued files list
+    const renderIssuedFiles = () => {
+      const filteredIssuedFiles = Object.keys(issuedFiles).filter(key =>
+        key.toLowerCase().includes(searchText.toLowerCase())
+      );
+
+      if (loadingIssuedFiles) {
+        return (
+          <div style={{
+            padding: '20px',
+            textAlign: 'center',
+            color: '#666',
+            fontSize: '14px'
+          }}>
+            Loading issued documents...
+          </div>
+        );
+      }
+
+      if (filteredIssuedFiles.length === 0) {
+        return (
+          <div style={{
+            padding: '20px',
+            textAlign: 'center',
+            color: '#666',
+            fontSize: '14px'
+          }}>
+            {searchText ? `No issued documents found matching "${searchText}"` : "No issued documents available"}
+          </div>
+        );
+      }
+
+      return filteredIssuedFiles.map((fileName) => (
+        <div key={fileName} style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px 16px',
+          borderBottom: '1px solid #e0e0e0',
+          backgroundColor: 'white',
+          minHeight: '60px'
+        }}>
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: 0
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px'
+            }}>
+              <span style={{
+                fontWeight: '500',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: '#2dd36f' // Green color to indicate issued status
+              }}>
+                📋 {fileName}
+              </span>
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: '#666',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              Issued: {_formatDate(issuedFiles[fileName])}
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            marginLeft: '16px',
+            flexShrink: 0
+          }}>
+            <div
+              onClick={() => retrieveIssuedFile(fileName)}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <IonIcon
+                icon={downloadOutline}
+                color="primary"
+                size="large"
+              />
+            </div>
+          </div>
+        </div>
+      ));
+    };
+
     const ourModal = (
       <IonModal isOpen={listFiles} onDidDismiss={() => {
         setListFiles(false);
@@ -366,18 +534,46 @@ const Files: React.FC<{
       }}>
         <IonHeader>
           <IonToolbar>
-            <IonTitle>Files ({filteredFileKeys.length})</IonTitle>
+            <IonTitle>
+              {activeTab === "local"
+                ? `Files (${filteredFileKeys.length})`
+                : `Issued Docs (${Object.keys(issuedFiles).filter(key => key.toLowerCase().includes(searchText.toLowerCase())).length})`
+              }
+            </IonTitle>
           </IonToolbar>
         </IonHeader>
         <IonContent>
+          {/* Segment for switching between tabs */}
+          <IonSegment
+            value={activeTab}
+            onIonChange={(e) => {
+              const newTab = e.detail.value as string;
+              setActiveTab(newTab);
+              setSearchText(""); // Clear search when switching tabs
+              if (newTab === "issued") {
+                loadIssuedFiles(); // Load issued files when switching to that tab
+              }
+            }}
+            style={{ margin: '16px' }}
+          >
+            <IonSegmentButton value="local">
+              <IonLabel>Local Files</IonLabel>
+            </IonSegmentButton>
+            <IonSegmentButton value="issued">
+              <IonLabel>Issued Docs</IonLabel>
+            </IonSegmentButton>
+          </IonSegment>
+
           <IonSearchbar
             value={searchText}
-            placeholder="Search files..."
+            placeholder={activeTab === "local" ? "Search files..." : "Search issued documents..."}
             onIonInput={(e) => setSearchText(e.detail.value!)}
             showClearButton="focus"
             debounce={300}
           />
-          {hasSelectedFiles() && (
+
+          {/* Upload controls - only show for local files tab */}
+          {activeTab === "local" && hasSelectedFiles() && (
             <div style={{ padding: '16px', backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
               <IonGrid>
                 <IonRow>
@@ -419,18 +615,23 @@ const Files: React.FC<{
               </div>
             </div>
           )}
+
           <div style={{ paddingBottom: '80px' }}>
-            {fileList.length > 0 ? (
-              fileList
+            {activeTab === "local" ? (
+              fileList.length > 0 ? (
+                fileList
+              ) : (
+                <div style={{
+                  padding: '20px',
+                  textAlign: 'center',
+                  color: '#666',
+                  fontSize: '14px'
+                }}>
+                  {searchText ? `No files found matching "${searchText}"` : "No files available"}
+                </div>
+              )
             ) : (
-              <div style={{
-                padding: '20px',
-                textAlign: 'center',
-                color: '#666',
-                fontSize: '14px'
-              }}>
-                {searchText ? `No files found matching "${searchText}"` : "No files available"}
-              </div>
+              renderIssuedFiles()
             )}
           </div>
         </IonContent>
@@ -451,6 +652,7 @@ const Files: React.FC<{
               setListFiles(false);
               setSearchText(""); // Clear search when closing
               clearSelectedFiles(); // Clear selections when closing
+              setActiveTab("local"); // Reset to local tab when closing
             }}
           >
             Back
@@ -463,10 +665,16 @@ const Files: React.FC<{
 
   useEffect(() => {
     temp();
-  }, [listFiles, searchText, selectedFiles, selectedDatabase]);
+  }, [listFiles, searchText, selectedFiles, selectedDatabase, activeTab, issuedFiles]);
 
   return (
     <React.Fragment>
+      <IonLoading
+        isOpen={loadingIssuedFiles && !!retrievingFileName}
+        message={`Retrieving "${retrievingFileName}"...`}
+        spinner="crescent"
+      />
+
       <IonIcon
         icon={fileTrayFull}
         className="ion-padding-end"

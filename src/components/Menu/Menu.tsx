@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import * as AppGeneral from "../socialcalc/index.js";
 import { File, Local } from "../Storage/LocalStorage";
 import { isPlatform, IonToast, IonLoading } from "@ionic/react";
@@ -6,7 +6,7 @@ import gmailService from '../../services/gmailService';
 import AlternativeGmailService from '../../services/gmailServiceAlternative';
 import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert, IonModal, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons } from "@ionic/react";
-import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline, imageOutline, qrCodeOutline } from "ionicons/icons";
+import { saveOutline, documentText, lockClosed, mail, print, download, documentOutline, documentsOutline, layersOutline, imageOutline, qrCodeOutline, checkmarkCircleOutline } from "ionicons/icons";
 import { APP_NAME, LOGO } from "../../app-data.js";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -62,6 +62,10 @@ const Menu: React.FC<{
   const [generatedBarcodeUrl, setGeneratedBarcodeUrl] = useState("");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState("");
   const [originalSignedUrl, setOriginalSignedUrl] = useState("");
+  const [showIssueInvoiceAlert, setShowIssueInvoiceAlert] = useState(false);
+  const [showIssueConfirmAlert, setShowIssueConfirmAlert] = useState(false);
+  const [issueInvoiceFileName, setIssueInvoiceFileName] = useState("");
+  const currentInvoiceFileNameRef = useRef<string>("");
   /* Utility functions */
   const _validateName = async (filename: string): Promise<boolean> => {
     filename = filename.trim();
@@ -1193,6 +1197,77 @@ ${APP_NAME} Team`,
     }
   };
 
+  // Issue Invoice functionality
+  const handleIssueInvoice = () => {
+    const currentFileName = getCurrentFileName();
+
+    // Check if current file is saved (not default)
+    if (currentFileName === "default") {
+      setToastMessage("Please save your invoice first before issuing it");
+      setShowToast1(true);
+      return;
+    }
+
+    // Check if file exists in storage
+    props.store._checkKey(currentFileName).then((exists) => {
+      if (!exists) {
+        setToastMessage("Please save your invoice first before issuing it");
+        setShowToast1(true);
+        return;
+      }
+
+      // Show alert to get the invoice file name
+      setShowIssueInvoiceAlert(true);
+    }).catch((error) => {
+      console.error("Error checking file:", error);
+      setToastMessage("Error checking file. Please save your invoice first.");
+      setShowToast1(true);
+    });
+  };
+
+  const issueInvoice = async (fileName: string) => {
+    console.log("issueInvoice called with fileName:", fileName);
+    if (!fileName || fileName.trim() === "") {
+      console.log("Please enter a valid file name");
+      setToastMessage("Please enter a valid file name");
+      setShowToast1(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadingMessage("Issuing invoice...");
+
+    try {
+      // Get the current spreadsheet content
+      const fileContent = AppGeneral.getSpreadsheetContent();
+      console.log("fileContent:", fileContent);
+
+      if (!fileContent) {
+        throw new Error("No content available to issue");
+      }
+
+      // Issue the invoice using the API
+      const response = await ApiService.uploadFileLighthouse(fileName.trim(), fileContent);
+
+      if (response.success) {
+        setToastMessage(`Invoice "${fileName}" issued successfully and cannot be modified`);
+        setShowToast1(true);
+      } else {
+        throw new Error(response.message || "Failed to issue invoice");
+      }
+
+    } catch (error) {
+      console.error("Error issuing invoice:", error);
+      setToastMessage(`Error issuing invoice: ${(error as Error).message}`);
+      setShowToast1(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+      setIssueInvoiceFileName("");
+      currentInvoiceFileNameRef.current = "";
+    }
+  };
+
   return (
     <React.Fragment>
       <IonLoading
@@ -1275,6 +1350,13 @@ ${APP_NAME} Team`,
             icon: qrCodeOutline,
             handler: () => {
               handleBarcodeOption();
+            },
+          },
+          {
+            text: "Issue Invoice",
+            icon: checkmarkCircleOutline,
+            handler: () => {
+              handleIssueInvoice();
             },
           },
         ]}
@@ -1689,6 +1771,87 @@ ${APP_NAME} Team`,
           </div>
         </IonContent>
       </IonModal>
+
+      {/* Issue Invoice Alert */}
+      <IonAlert
+        animated
+        isOpen={showIssueInvoiceAlert}
+        onDidDismiss={() => {
+          setShowIssueInvoiceAlert(false);
+          setIssueInvoiceFileName("");
+        }}
+        header="Issue Invoice"
+        message="Enter the name for your issued invoice:"
+        inputs={[
+          {
+            name: "invoiceFileName",
+            type: "text",
+            placeholder: "Invoice name",
+            value: issueInvoiceFileName || "",
+          },
+        ]}
+        buttons={[
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              setIssueInvoiceFileName("");
+            },
+          },
+          {
+            text: "Next",
+            handler: (alertData) => {
+              console.log("Alert data received:", alertData);
+              const fileName = alertData.invoiceFileName?.trim();
+              console.log("Extracted fileName:", fileName);
+              if (!fileName) {
+                setToastMessage("Please enter a valid file name");
+                setShowToast1(true);
+                return false; // Keep alert open
+              }
+              console.log("Setting issue invoice fileName to:", fileName);
+              setIssueInvoiceFileName(fileName);
+              currentInvoiceFileNameRef.current = fileName; // Store in ref for immediate access
+              setShowIssueInvoiceAlert(false);
+              setShowIssueConfirmAlert(true);
+              return true;
+            },
+          },
+        ]}
+      />
+
+      {/* Issue Invoice Confirmation Alert */}
+      <IonAlert
+        animated
+        isOpen={showIssueConfirmAlert}
+        onDidDismiss={() => {
+          setShowIssueConfirmAlert(false);
+          setIssueInvoiceFileName("");
+          currentInvoiceFileNameRef.current = "";
+        }}
+        header="⚠️ Warning"
+        message={`Are you sure you want to issue "${currentInvoiceFileNameRef.current || issueInvoiceFileName}"?\n\nOnce the invoice is issued, it CANNOT be modified or renamed. This action is permanent and irreversible.`}
+        buttons={[
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              setIssueInvoiceFileName("");
+              currentInvoiceFileNameRef.current = "";
+              setShowIssueInvoiceAlert(true); // Go back to name input
+            },
+          },
+          {
+            text: "Issue Invoice",
+            handler: () => {
+              console.log("Issue Invoice button clicked, issueInvoiceFileName state:", issueInvoiceFileName);
+              console.log("Issue Invoice button clicked, currentInvoiceFileNameRef.current:", currentInvoiceFileNameRef.current);
+              issueInvoice(currentInvoiceFileNameRef.current); // Use ref value instead of state
+              setShowIssueConfirmAlert(false);
+            },
+          },
+        ]}
+      />
     </React.Fragment>
   );
 };

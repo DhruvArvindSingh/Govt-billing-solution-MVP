@@ -537,6 +537,103 @@ class ApiService {
             this.handleApiError(error, `delete ${database} file`);
         }
     }
+
+    // ============================================
+    // LIGHTHOUSE OPERATIONS
+    // ============================================
+
+    /**
+     * Issue an invoice by uploading to Lighthouse
+     * @param fileName - Name of the file to issue
+     * @param fileContent - Content of the file
+     * @returns Promise<ApiResponse>
+     */
+    static async uploadFileLighthouse(fileName: string, fileContent: string): Promise<ApiResponse> {
+        try {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            if (typeof fileContent !== 'string') {
+                throw new Error('Invalid fileContent provided - must be string');
+            }
+
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            const response = await apiClient.post<ApiResponse>('/api/v1/uploadFileLighthouse', {
+                token,
+                fileName,
+                fileContent
+            });
+
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, 'issue invoice to Lighthouse');
+        }
+    }
+
+    /**
+     * List all issued documents from Lighthouse
+     * @returns Promise<FileListResponse>
+     */
+    static async listAllLighthouse(): Promise<FileListResponse> {
+        try {
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            const response = await apiClient.post<FileListResponse>('/api/v1/listAllLighthouse', {
+                token
+            });
+
+            return this.handleApiResponse(response);
+        } catch (error) {
+            this.handleApiError(error, 'list Lighthouse files');
+        }
+    }
+
+    /**
+     * Get an issued document from Lighthouse
+     * @param fileName - Name of the file to retrieve
+     * @returns Promise<FileContent>
+     */
+    static async getFileLighthouse(fileName: string): Promise<FileContent> {
+        try {
+            if (!fileName || typeof fileName !== 'string') {
+                throw new Error('Invalid fileName provided');
+            }
+
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('Please login to continue');
+            }
+
+            const response = await apiClient.post('/api/v1/getFileLighthouse', {
+                token,
+                fileName
+            });
+
+            console.log('Lighthouse file response:', response.data);
+
+            const responseData = this.handleApiResponse(response);
+
+            // Handle the response format
+            if (responseData && typeof responseData === 'object' && 'content' in responseData) {
+                return {
+                    content: responseData.content,
+                    fileName: responseData.fileName || fileName
+                };
+            } else {
+                throw new Error('Invalid response format from Lighthouse API');
+            }
+        } catch (error) {
+            this.handleApiError(error, 'get Lighthouse file');
+        }
+    }
 }
 
 export default ApiService;
