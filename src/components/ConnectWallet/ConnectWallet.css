@@ -1,0 +1,125 @@
+/* ConnectWallet Component Styles */
+.connect-wallet-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.connect-wallet-button {
+    margin-right: 8px;
+    --color: white;
+    --color-hover: rgba(255, 255, 255, 0.8);
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.connect-wallet-button ion-icon {
+    font-size: 18px;
+    margin-right: 6px;
+}
+
+.connect-wallet-button:hover {
+    --color: rgba(255, 255, 255, 0.9);
+    transform: translateY(-1px);
+}
+
+/* Connected wallet container */
+.connected-wallet-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Chain button specific styles */
+.chain-button {
+    --color: #4285f4;
+    --background: rgba(66, 133, 244, 0.1);
+    --border-radius: 6px;
+    font-size: 12px;
+    min-height: 36px;
+    padding: 0 12px;
+}
+
+.chain-button:hover {
+    --background: rgba(66, 133, 244, 0.2);
+}
+
+/* Account button specific styles */
+.account-button {
+    --color: white;
+    --background: rgba(255, 255, 255, 0.1);
+    --border-radius: 6px;
+    font-size: 12px;
+    min-height: 36px;
+    padding: 0 12px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-button:hover {
+    --background: rgba(255, 255, 255, 0.2);
+}
+
+/* Wrong network state */
+.wrong-network {
+    --color: #ff6b6b;
+    --background: rgba(255, 107, 107, 0.1);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .connect-wallet-button {
+        font-size: 12px;
+        min-height: 40px;
+        margin-right: 4px;
+    }
+
+    .connect-wallet-button ion-icon {
+        font-size: 16px;
+        margin-right: 4px;
+    }
+
+    .account-button {
+        max-width: 120px;
+        font-size: 11px;
+    }
+
+    .chain-button {
+        font-size: 11px;
+        padding: 0 8px;
+    }
+}
+
+/* Hide text on very small screens, show only icons */
+@media (max-width: 480px) {
+    .connect-wallet-button span {
+        display: none;
+    }
+
+    .connect-wallet-button ion-icon {
+        margin-right: 0;
+    }
+
+    .account-button {
+        max-width: 80px;
+    }
+}

@@ -1,7 +1,7 @@
 /* Login Component Styles */
 .login-modal {
     /* Use a fixed height on web to avoid the modal collapsing to just the header */
-    --height: 420px;
+    --height: 550px;
     --width: 450px;
     --max-width: 90vw;
     --max-height: 90vh;
@@ -29,6 +29,104 @@
     padding: 30px;
     background: white;
     width: 100%;
+}
+
+.wallet-connect-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+.wallet-connect-section h3 {
+    margin: 0 0 16px 0;
+    color: #333;
+    font-weight: 600;
+}
+
+/* RainbowKit ConnectButton styles */
+.wallet-connect-section button[data-testid="rk-connect-button"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    background: #4285f4 !important;
+    color: white !important;
+    border: none !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    min-height: 48px !important;
+    width: auto !important;
+    max-width: 100% !important;
+}
+
+.wallet-connect-section button[data-testid="rk-connect-button"]:hover {
+    background: #3367d6 !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Ensure all RainbowKit buttons are visible */
+.wallet-connect-section [data-rk] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* RainbowKit modal and overlay styles */
+.wallet-connect-section [data-rk]>div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Specific styling for the connect button container */
+.wallet-connect-section>div:last-of-type {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 60px !important;
+}
+
+/* Additional RainbowKit button selectors for different versions */
+.wallet-connect-section button,
+.wallet-connect-section [role="button"],
+.wallet-connect-section .iekbcc0 {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    background: #4285f4 !important;
+    color: white !important;
+    border: none !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    min-height: 48px !important;
+    width: auto !important;
+    max-width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Force visibility for any hidden elements in wallet section */
+.wallet-connect-section * {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure proper z-index for RainbowKit modals */
+[data-rk] {
+    z-index: 10000 !important;
 }
 
 .login-form {

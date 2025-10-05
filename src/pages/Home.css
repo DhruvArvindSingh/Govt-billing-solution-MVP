@@ -73,3 +73,21 @@ ion-content {
 .saving-spinner {
   animation: spin 1s linear infinite;
 }
+
+.connect-button {
+  margin-right: 0px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.connect-button button {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

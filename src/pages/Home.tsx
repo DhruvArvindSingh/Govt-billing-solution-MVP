@@ -13,6 +13,7 @@ import {
   IonRow,
   IonCol,
 } from "@ionic/react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
 import { useEffect, useState, useRef } from "react";
@@ -24,6 +25,7 @@ import Files from "../components/Files/Files";
 import Cloud from "../components/Cloud/Cloud";
 import NewFile from "../components/NewFile/NewFile";
 import Login from "../components/Login/Login";
+import ConnectWallet from "../components/ConnectWallet";
 import FooterSelector from "../components/FooterSelector/FooterSelector";
 import ApiService from "../components/service/Apiservice";
 import { useApp } from "../contexts/AppContext";
@@ -508,13 +510,19 @@ const Home: React.FC = () => {
                   {autoSaveStatus === 'error' && (
                     <>
                       <span style={{ color: '#FFB6C1' }}>⚠</span>
+
                       <span style={{ color: '#FFB6C1', fontSize: '11px' }}>Save Failed</span>
                     </>
                   )}
                 </div>
               )}
             </div>
+
           </IonTitle>
+
+
+          <ConnectWallet slot="end" />
+
           <Login
             slot="end"
             isLoggedIn={isLoggedIn}
@@ -522,6 +530,8 @@ const Home: React.FC = () => {
             onLoginSuccess={handleLoginSuccess}
             onLogout={handleLogout}
           />
+
+
         </IonToolbar>
       </IonHeader>
       <IonToolbar color="primary">
