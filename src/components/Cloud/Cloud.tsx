@@ -24,6 +24,8 @@ import { cloud, trash, create, cloudUpload, close, shield, download, shuffle, ch
 import { File } from "../Storage/LocalStorage";
 import PasswordModal from "../PasswordModal/PasswordModal";
 import CryptoJS from "crypto-js";
+import { useAccount } from 'wagmi';
+import { useFilecoinFiles } from '../../hooks/useFilecoinFiles';
 
 interface FileSelection {
     [key: string]: boolean;
@@ -36,7 +38,7 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'filecoin'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
@@ -75,6 +77,30 @@ const Cloud: React.FC<{
     const tabNavigationRef = useRef<HTMLDivElement>(null);
     const [showLeftArrow, setShowLeftArrow] = useState(false);
     const [showRightArrow, setShowRightArrow] = useState(false);
+
+    // Wallet connection for Filecoin
+    const { isConnected } = useAccount();
+
+    // Filecoin files management
+    const {
+        files: filecoinFiles,
+        isLoading: filecoinLoading,
+        refetch: refetchFilecoinFiles,
+        uploadInvoice,
+        isUploading,
+        uploadError,
+        getFileContent,
+        error: filecoinError
+    } = useFilecoinFiles();
+
+    // Debug Filecoin files
+    console.log('Filecoin files state:', {
+        files: filecoinFiles,
+        isLoading: filecoinLoading,
+        error: filecoinError,
+        isConnected,
+        activeTab
+    });
 
     // Unified function to load files from any database
     const loadFilesFromDatabase = async (database: DatabaseType) => {
@@ -156,9 +182,15 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb') => {
+    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'filecoin') => {
         // Deselect all files when switching tabs
         setSelectedCloudFiles({});
+
+        // Check wallet connection for Filecoin tab
+        if (tab === 'filecoin' && !isConnected) {
+            showWalletConnectionAlert();
+            return;
+        }
 
         setActiveTab(tab);
         if (tab === 's3' && Object.keys(s3Files).length === 0) {
@@ -174,6 +206,7 @@ const Cloud: React.FC<{
         } else if (tab === 'orbitdb' && Object.keys(orbitdbFiles).length === 0) {
             await loadFilesFromOrbitdb();
         }
+        // Filecoin tab doesn't need to load files here as it uses React Query
     };
 
     // Get current files based on active tab
@@ -191,6 +224,15 @@ const Cloud: React.FC<{
                 return neo4jFiles;
             case 'orbitdb':
                 return orbitdbFiles;
+            case 'filecoin':
+                // Convert filecoin files to the expected format
+                const filecoinFilesMap: { [key: string]: number } = {};
+                filecoinFiles.forEach(file => {
+                    // Enhanced display format with more information
+                    const displayName = `${file.pieceCid} - Piece #${file.pieceId || 'N/A'} (${file.name})`;
+                    filecoinFilesMap[displayName] = file.uploadedAt;
+                });
+                return filecoinFilesMap;
             default:
                 return s3Files;
         }
@@ -198,6 +240,35 @@ const Cloud: React.FC<{
 
     // Upload current invoice to cloud
     const uploadCurrentInvoice = async () => {
+        if (activeTab === 'filecoin') {
+            // Handle Filecoin upload
+            setLoading(true);
+            try {
+                const currentData = AppGeneral.getSpreadsheetContent();
+
+                if (!currentData || currentData.trim() === '') {
+                    setToastMessage('No invoice data to upload');
+                    setShowToast(true);
+                    setLoading(false);
+                    return;
+                }
+
+                await uploadInvoice(currentData);
+                setToastMessage('Invoice uploaded to Filecoin successfully!');
+                setShowToast(true);
+
+                // Refresh the files list
+                refetchFilecoinFiles();
+            } catch (err: any) {
+                console.error('Failed to upload invoice to Filecoin', err);
+                setToastMessage(`Failed to upload to Filecoin: ${err.message || 'Unknown error'}`);
+                setShowToast(true);
+            }
+            setLoading(false);
+            return;
+        }
+
+        // Handle other database uploads
         const fileName = prompt('Enter filename for the current invoice (without extension):');
 
         if (!fileName) return;
@@ -320,9 +391,39 @@ const Cloud: React.FC<{
     const editFile = async (key: string) => {
         setLoading(true);
         try {
+            if (activeTab === 'filecoin') {
+                // Handle Filecoin file editing
+                // Extract CID from the display name format "CID - Piece #X (filename)"
+                const cidMatch = key.match(/^([^\s]+)\s*-\s*Piece\s*#(\d+|N\/A)/);
+                const cid = cidMatch ? cidMatch[1] : key.split(' ')[0];
+
+                const filecoinFile = filecoinFiles.find(f => f.pieceCid === cid || f.name === key);
+                if (!filecoinFile) {
+                    setToastMessage('File not found');
+                    setShowToast(true);
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const content = await getFileContent(filecoinFile);
+                    AppGeneral.viewFile(filecoinFile.name, content);
+                    props.updateSelectedFile(filecoinFile.name);
+                    setShowModal(false);
+                    setLoading(false);
+                } catch (error) {
+                    console.error('Error loading Filecoin file:', error);
+                    setToastMessage('Failed to load file from Filecoin');
+                    setShowToast(true);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            // Handle other database files
             let fileData = null;
             const isPasswordProtected = isFilePasswordProtected(key);
-            fileData = await getFileFromDatabase(activeTab, key, isPasswordProtected);
+            fileData = await getFileFromDatabase(activeTab as DatabaseType, key, isPasswordProtected);
 
             if (fileData && fileData.content) {
                 if (isPasswordProtected) {
@@ -449,6 +550,12 @@ const Cloud: React.FC<{
 
     // Delete file
     const deleteFile = (key: string) => {
+        if (activeTab === 'filecoin') {
+            setToastMessage('Files stored on Filecoin cannot be deleted due to the immutable nature of the blockchain');
+            setShowToast(true);
+            return;
+        }
+
         setCurrentKey(key);
         let provider = '';
         switch (activeTab) {
@@ -482,7 +589,9 @@ const Cloud: React.FC<{
         setLoading(true);
         let success = false;
         const isPasswordProtected = isFilePasswordProtected(currentKey);
-        success = await deleteFileFromDatabase(activeTab, currentKey, isPasswordProtected);
+        if (activeTab !== 'filecoin') {
+            success = await deleteFileFromDatabase(activeTab as DatabaseType, currentKey, isPasswordProtected);
+        }
 
         if (success) {
             setToastMessage('File deleted successfully');
@@ -754,7 +863,10 @@ const Cloud: React.FC<{
                 try {
                     // Get file from source database
                     const isPasswordProtected = isFilePasswordProtected(fileName);
-                    const fileData = await getFileFromDatabase(activeTab, fileName, isPasswordProtected);
+                    let fileData = null;
+                    if (activeTab !== 'filecoin') {
+                        fileData = await getFileFromDatabase(activeTab as DatabaseType, fileName, isPasswordProtected);
+                    }
 
                     if (fileData && fileData.content) {
                         // Upload to target database
@@ -772,7 +884,7 @@ const Cloud: React.FC<{
             // Clear selections and show result
             setSelectedCloudFiles({});
 
-            const sourceDbName = getDatabaseDisplayName(activeTab);
+            const sourceDbName = activeTab === 'filecoin' ? 'Filecoin' : getDatabaseDisplayName(activeTab as DatabaseType);
             const targetDbName = getDatabaseDisplayName(targetDb);
 
             if (successCount > 0 && errorCount === 0) {
@@ -823,7 +935,9 @@ const Cloud: React.FC<{
                     console.log('content: ', content);
 
                     let success = false;
-                    success = await saveFileToDatabase(activeTab, fileName, content, isPasswordProtected);
+                    if (activeTab !== 'filecoin') {
+                        success = await saveFileToDatabase(activeTab as DatabaseType, fileName, content, isPasswordProtected);
+                    }
 
                     if (success) {
                         successCount++;
@@ -929,7 +1043,9 @@ const Cloud: React.FC<{
         try {
             let fileData = null;
             const isPasswordProtected = isFilePasswordProtected(filename);
-            fileData = await getFileFromDatabase(activeTab, filename, isPasswordProtected);
+            if (activeTab !== 'filecoin') {
+                fileData = await getFileFromDatabase(activeTab as DatabaseType, filename, isPasswordProtected);
+            }
 
             if (!fileData || !fileData.content) {
                 return false;
@@ -996,6 +1112,12 @@ const Cloud: React.FC<{
             return;
         }
         setShowModal(true);
+    };
+
+    // Handle wallet connection alert for Filecoin
+    const showWalletConnectionAlert = () => {
+        setAlertMessage('Please connect your wallet to access Filecoin storage. You need a connected wallet to upload and view files on Filecoin.');
+        setShowAlert(true);
     };
 
     // Create the cloud page content
@@ -1072,6 +1194,13 @@ const Cloud: React.FC<{
                             >
                                 🌌 OrbitDB
                             </button>
+                            <button
+                                className={`tab-button ${activeTab === 'filecoin' ? 'active' : ''}`}
+                                onClick={() => switchTab('filecoin')}
+                                disabled={loading}
+                            >
+                                🪙 Filecoin
+                            </button>
                         </div>
                         {showRightArrow && (
                             <button className="tab-scroll-arrow right" onClick={scrollRight}>
@@ -1085,11 +1214,16 @@ const Cloud: React.FC<{
                         <IonButton
                             className="upload-button"
                             onClick={hasSelectedCloudFiles() ? deselectAllCloudFiles : uploadCurrentInvoice}
-                            disabled={loading}
+                            disabled={loading || (activeTab === 'filecoin' && isUploading)}
                             color={hasSelectedCloudFiles() ? "medium" : "primary"}
                         >
                             <IonIcon icon={hasSelectedCloudFiles() ? close : cloudUpload} slot="start" />
-                            {hasSelectedCloudFiles() ? "Deselect All" : "Upload Invoice"}
+                            {hasSelectedCloudFiles()
+                                ? "Deselect All"
+                                : activeTab === 'filecoin'
+                                    ? (isUploading ? "Uploading..." : "Upload to Filecoin")
+                                    : "Upload Invoice"
+                            }
                         </IonButton>
 
                         {hasSelectedCloudFiles() && (
@@ -1150,10 +1284,31 @@ const Cloud: React.FC<{
                         </div>
                     </div>
 
+                    {/* Filecoin Loading State */}
+                    {activeTab === 'filecoin' && filecoinLoading && (
+                        <div className="loading-message">
+                            Loading files from Filecoin...
+                        </div>
+                    )}
+
+                    {/* Filecoin Upload Error */}
+                    {activeTab === 'filecoin' && uploadError && (
+                        <div className="error-message">
+                            Upload Error: {uploadError.message}
+                        </div>
+                    )}
+
+                    {/* Filecoin Fetch Error */}
+                    {activeTab === 'filecoin' && filecoinError && (
+                        <div className="error-message">
+                            Error loading files: {filecoinError.message}
+                        </div>
+                    )}
+
                     {/* File List */}
                     {(
                         <div className="file-list-container">
-                            {loading && (
+                            {(loading || (activeTab === 'filecoin' && filecoinLoading)) && (
                                 <div className="loading-message">
                                     Loading files from {
                                         activeTab === 's3' ? 'S3' :
@@ -1161,18 +1316,19 @@ const Cloud: React.FC<{
                                                 activeTab === 'firebase' ? 'Firebase' :
                                                     activeTab === 'mongo' ? 'MongoDB' :
                                                         activeTab === 'neo4j' ? 'Neo4j' :
-                                                            'OrbitDB'
+                                                            activeTab === 'orbitdb' ? 'OrbitDB' :
+                                                                'Filecoin'
                                     }...
                                 </div>
                             )}
 
-                            {!loading && filteredFiles.length === 0 && searchTerm && (
+                            {!loading && !(activeTab === 'filecoin' && filecoinLoading) && filteredFiles.length === 0 && searchTerm && (
                                 <div className="no-results-message">
                                     No files found matching "{searchTerm}"
                                 </div>
                             )}
 
-                            {!loading && Object.keys(files).length === 0 && !searchTerm && (
+                            {!loading && !(activeTab === 'filecoin' && filecoinLoading) && Object.keys(files).length === 0 && !searchTerm && (
                                 <div className="no-files-message">
                                     No files found in {
                                         activeTab === 's3' ? 'S3' :
@@ -1180,12 +1336,13 @@ const Cloud: React.FC<{
                                                 activeTab === 'firebase' ? 'Firebase' :
                                                     activeTab === 'mongo' ? 'MongoDB' :
                                                         activeTab === 'neo4j' ? 'Neo4j' :
-                                                            'OrbitDB'
+                                                            activeTab === 'orbitdb' ? 'OrbitDB' :
+                                                                'Filecoin'
                                     }
                                 </div>
                             )}
 
-                            {!loading && filteredFiles.length > 0 && (
+                            {!loading && !(activeTab === 'filecoin' && filecoinLoading) && filteredFiles.length > 0 && (
                                 <IonList className="file-list">
                                     {filteredFiles.map((key) => (
                                         <IonItem key={key} className="file-item">
@@ -1198,17 +1355,36 @@ const Cloud: React.FC<{
                                             />
                                             <div className="file-info">
                                                 <div className="file-name">
-                                                    {key}
-                                                    {isFilePasswordProtected(key) && (
-                                                        <IonIcon
-                                                            icon={shield}
-                                                            className="password-shield-icon"
-                                                            title="Password Protected"
-                                                        />
+                                                    {activeTab === 'filecoin' ? (
+                                                        <div>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '0.9em' }}>
+                                                                {key.split(' - ')[0]} {/* CID */}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.8em', color: '#666' }}>
+                                                                {key.split(' - ')[1] || 'Filecoin File'} {/* Piece info and name */}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            {key}
+                                                            {isFilePasswordProtected(key) && (
+                                                                <IonIcon
+                                                                    icon={shield}
+                                                                    className="password-shield-icon"
+                                                                    title="Password Protected"
+                                                                />
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                                 <div className="file-date">
-                                                    {_formatDate(files[key])}
+                                                    {activeTab === 'filecoin' ? (
+                                                        <div style={{ fontSize: '0.8em' }}>
+                                                            <div>Stored: {_formatDate(files[key])}</div>
+                                                        </div>
+                                                    ) : (
+                                                        _formatDate(files[key])
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -1219,12 +1395,14 @@ const Cloud: React.FC<{
                                                     className="action-icon"
                                                     onClick={() => editFile(key)}
                                                 />
-                                                <IonIcon
-                                                    icon={trash}
-                                                    color="danger"
-                                                    className="action-icon"
-                                                    onClick={() => deleteFile(key)}
-                                                />
+                                                {activeTab !== 'filecoin' && (
+                                                    <IonIcon
+                                                        icon={trash}
+                                                        color="danger"
+                                                        className="action-icon"
+                                                        onClick={() => deleteFile(key)}
+                                                    />
+                                                )}
                                             </div>
                                         </IonItem>
                                     ))}
@@ -1254,15 +1432,19 @@ const Cloud: React.FC<{
                 animated
                 isOpen={showAlert}
                 onDidDismiss={() => setShowAlert(false)}
-                header="Delete file"
+                header={alertMessage.includes('wallet') ? "Wallet Connection Required" : "Delete file"}
                 message={alertMessage}
-                buttons={[
-                    { text: "No", role: "cancel" },
-                    {
-                        text: "Yes",
-                        handler: confirmDelete,
-                    },
-                ]}
+                buttons={
+                    alertMessage.includes('wallet')
+                        ? [{ text: "OK", role: "cancel" }]
+                        : [
+                            { text: "No", role: "cancel" },
+                            {
+                                text: "Yes",
+                                handler: confirmDelete,
+                            },
+                        ]
+                }
             />
 
             {/* Batch Operations Conflict Alert */}

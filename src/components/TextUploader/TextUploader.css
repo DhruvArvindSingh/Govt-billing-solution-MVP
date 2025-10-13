@@ -1,0 +1,168 @@
+/* TextUploader Component Styles */
+.text-uploader-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.text-input {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.text-input:focus {
+    border-color: #4285f4;
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.text-stats {
+    margin: 10px 0;
+    padding: 8px 12px;
+    background-color: #f5f5f5;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+}
+
+.button-container {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.button-container ion-button {
+    flex: 1;
+}
+
+.status-container {
+    margin: 20px 0;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #4285f4;
+}
+
+.status-text {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    --background: #e9ecef;
+    --progress-background: #4285f4;
+}
+
+.success-card {
+    margin-top: 20px;
+    border-left: 4px solid #28a745;
+}
+
+.success-card ion-card-title {
+    color: #28a745;
+}
+
+.upload-info {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.upload-info p {
+    margin: 8px 0;
+}
+
+.upload-info strong {
+    color: #333;
+    font-weight: 600;
+}
+
+.cid-text,
+.tx-text {
+    background-color: #f1f3f4;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    word-break: break-all;
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+.error-card {
+    margin-top: 20px;
+    border-left: 4px solid #dc3545;
+    background-color: #f8d7da;
+}
+
+.error-text {
+    color: #721c24;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .text-uploader-container {
+        padding: 16px;
+    }
+
+    .button-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .text-input {
+        min-height: 100px;
+        font-size: 16px;
+        /* Prevent zoom on iOS */
+    }
+
+    .text-stats {
+        font-size: 11px;
+    }
+
+    .upload-info {
+        font-size: 13px;
+    }
+
+    .cid-text,
+    .tx-text {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .text-stats {
+        background-color: #2d3748;
+        color: #a0aec0;
+    }
+
+    .status-container {
+        background-color: #2d3748;
+        color: #e2e8f0;
+    }
+
+    .status-text {
+        color: #e2e8f0;
+    }
+
+    .cid-text,
+    .tx-text {
+        background-color: #4a5568;
+        color: #e2e8f0;
+    }
+}

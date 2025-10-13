@@ -1,0 +1,1 @@
+export { StoredTextsViewer } from './StoredTextsViewer';

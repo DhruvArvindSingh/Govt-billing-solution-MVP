@@ -548,3 +548,39 @@
         max-height: 150px;
     }
 }
+
+/* Filecoin Content Styles */
+.filecoin-content {
+    padding: 20px 0;
+}
+
+.filecoin-sub-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    justify-content: center;
+    padding: 0 20px;
+}
+
+.filecoin-sub-tabs ion-button {
+    --border-radius: 8px;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    font-weight: 600;
+    text-transform: none;
+}
+
+/* Responsive Filecoin tabs */
+@media (max-width: 600px) {
+    .filecoin-sub-tabs {
+        flex-direction: column;
+        gap: 8px;
+        padding: 0 10px;
+    }
+
+    .filecoin-sub-tabs ion-button {
+        width: 100%;
+        --padding-start: 16px;
+        --padding-end: 16px;
+    }
+}

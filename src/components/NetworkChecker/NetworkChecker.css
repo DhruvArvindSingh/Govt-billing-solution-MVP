@@ -1,0 +1,86 @@
+/* NetworkChecker Component Styles */
+.network-checker-card {
+    margin: 16px 0;
+}
+
+.network-checker-card.success {
+    border-left: 4px solid #22c55e;
+}
+
+.network-checker-card.warning {
+    border-left: 4px solid #f59e0b;
+    background-color: #fffbeb;
+}
+
+.network-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #22c55e;
+}
+
+.network-warning {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.network-warning ion-icon {
+    font-size: 20px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.warning-content {
+    flex: 1;
+}
+
+.warning-content p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.warning-content p:last-child {
+    margin-bottom: 0;
+}
+
+.warning-content small {
+    color: #6b7280;
+    font-family: 'Courier New', monospace;
+}
+
+.warning-content ion-button {
+    margin-top: 12px;
+    --border-radius: 6px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .network-warning {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .warning-content ion-button {
+        width: 100%;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .network-checker-card.warning {
+        background-color: #451a03;
+        border-color: #f59e0b;
+    }
+
+    .warning-content p {
+        color: #fbbf24;
+    }
+
+    .warning-content small {
+        color: #9ca3af;
+    }
+}

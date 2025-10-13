@@ -14,7 +14,10 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    legacy(),
+    // legacy({
+    //   targets: ['defaults', 'not IE 11'],
+    //   modernPolyfills: ['es.bigint'],
+    // }),
     commonjs(),
     VitePWA({
       // auto-register the SW and check for updates periodically

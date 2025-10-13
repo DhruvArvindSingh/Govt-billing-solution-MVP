@@ -1,0 +1,215 @@
+/* StoredTextsViewer Component Styles */
+.stored-texts-container {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.loading-container ion-spinner {
+    margin-bottom: 16px;
+}
+
+.loading-container p {
+    color: #666;
+    font-style: italic;
+}
+
+.datasets-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.dataset-card {
+    border-left: 4px solid #4285f4;
+    margin: 0;
+}
+
+.dataset-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.dataset-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.dataset-status {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.piece-item {
+    border-bottom: 1px solid #e9ecef;
+    padding: 16px 0;
+}
+
+.piece-item:last-child {
+    border-bottom: none;
+}
+
+.piece-item ion-label h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
+}
+
+.piece-cid {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #666;
+    background-color: #f1f3f4;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 4px 0;
+    word-break: break-all;
+}
+
+.piece-date {
+    font-size: 13px;
+    color: #888;
+    margin: 4px 0 0 0;
+}
+
+.no-pieces-message {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+    margin: 0;
+}
+
+.no-data-container {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.no-data-message {
+    font-size: 18px;
+    color: #666;
+    margin: 0 0 8px 0;
+    font-weight: 500;
+}
+
+.no-data-subtitle {
+    font-size: 14px;
+    color: #888;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .stored-texts-container {
+        padding: 16px;
+    }
+
+    .dataset-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .dataset-title {
+        font-size: 16px;
+    }
+
+    .piece-item {
+        padding: 12px 0;
+    }
+
+    .piece-item ion-label h3 {
+        font-size: 15px;
+    }
+
+    .piece-cid {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+
+    .piece-date {
+        font-size: 12px;
+    }
+
+    .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+/* Animation for loading */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dataset-card {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .dataset-title {
+        color: #e2e8f0;
+    }
+
+    .dataset-status {
+        color: #a0aec0;
+    }
+
+    .piece-item ion-label h3 {
+        color: #e2e8f0;
+    }
+
+    .piece-cid {
+        background-color: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .piece-date {
+        color: #a0aec0;
+    }
+
+    .no-pieces-message,
+    .no-data-message {
+        color: #a0aec0;
+    }
+
+    .no-data-subtitle {
+        color: #718096;
+    }
+}

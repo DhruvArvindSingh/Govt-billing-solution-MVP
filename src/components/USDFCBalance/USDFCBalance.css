@@ -1,0 +1,199 @@
+/* USDFCBalance Component Styles */
+.usdfc-balance-card {
+    margin: 16px 0;
+    border-left: 4px solid #f59e0b;
+}
+
+.balance-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    color: #333;
+}
+
+.balance-title ion-icon {
+    color: #f59e0b;
+}
+
+.balance-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.balance-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 14px;
+}
+
+.balance-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #dc3545;
+    font-size: 14px;
+}
+
+.balance-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.balance-amount {
+    flex: 1;
+}
+
+.balance-amount ion-badge {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 12px;
+}
+
+.no-balance-info {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    align-items: flex-start;
+}
+
+.no-balance-info ion-icon {
+    font-size: 20px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.info-content {
+    flex: 1;
+}
+
+.info-content p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.info-content p:last-child {
+    margin-bottom: 0;
+}
+
+.faucet-links {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+    flex-wrap: wrap;
+}
+
+.faucet-links ion-button {
+    --border-radius: 6px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    font-size: 12px;
+}
+
+.faucet-instructions {
+    margin: 16px 0;
+    padding: 12px;
+    background-color: #f0f9ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+}
+
+.faucet-instructions p {
+    margin: 0 0 8px 0;
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.faucet-instructions ol {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+    color: #374151;
+}
+
+.faucet-instructions li {
+    margin: 4px 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.token-address {
+    margin-top: 12px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+}
+
+.token-address small {
+    font-family: 'Courier New', monospace;
+    color: #666;
+    word-break: break-all;
+    font-size: 11px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .balance-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .balance-display {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .faucet-links {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .faucet-links ion-button {
+        width: 100%;
+    }
+
+    .no-balance-info {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .balance-title {
+        color: #e2e8f0;
+    }
+
+    .balance-loading {
+        color: #a0aec0;
+    }
+
+    .no-balance-info {
+        background-color: #2d3748;
+        border-color: #4a5568;
+    }
+
+    .info-content p {
+        color: #e2e8f0;
+    }
+
+    .token-address {
+        background-color: #4a5568;
+        border-color: #718096;
+    }
+
+    .token-address small {
+        color: #a0aec0;
+    }
+}
