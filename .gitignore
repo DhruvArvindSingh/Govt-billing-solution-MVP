@@ -30,3 +30,4 @@ package-lock.json
 
 # Optional eslint cache
 .eslintcache
+aspiring-release-key.keystore
