@@ -36,6 +36,17 @@ Install npm/node version 22.16.0 via nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash && source ~/.bashrc && nvm list-remote && nvm install v22.16.0
 ```
 
+### 1.4. Configure Environment Variables
+
+Copy the example environment file and edit it with your configuration:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Update the environment variables as needed for your deployment.
+
 ## 2.1 Setup Project
 
 The `ec2.sh` script automates the project setup.
