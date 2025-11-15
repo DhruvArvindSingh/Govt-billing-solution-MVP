@@ -24,8 +24,8 @@ sudo apt install git
 ### 1.3. Install git
 
 ```bash
-git clone https://github.com/DhruvArvindSingh/MVP-backend
-cd MVP-backend
+git clone --branch with_ligthhouse --single-branch  https://github.com/DhruvArvindSingh/Govt-billing-solution-MVP.git 
+cd Govt-billing-solution-MVP
 ```
 
 ### 1.3. Install Node and Npm using Nvm 
