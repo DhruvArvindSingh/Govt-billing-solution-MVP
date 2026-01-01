@@ -19,7 +19,7 @@ export const useDatasets = () => {
             const datasetsWithData = await Promise.all(
                 datasets.map(async (dataset: any) => {
                     try {
-                        const data = await synapse.storage.getDataSet(dataset.clientDataSetId);
+                        const data = await (synapse.storage as any).getDataSet(dataset.clientDataSetId);
                         return {
                             ...dataset,
                             data

@@ -242,10 +242,10 @@ export const useTextUpload = () => {
                     // Try to create a new payments service instance
                     try {
                         console.log('PaymentsService available methods:', Object.getOwnPropertyNames(PaymentsService));
-                        console.log('PaymentsService.create exists:', typeof PaymentsService.create === 'function');
+                        console.log('PaymentsService.create exists:', typeof (PaymentsService as any).create === 'function');
 
-                        if (typeof PaymentsService.create === 'function') {
-                            const newPaymentsService = await PaymentsService.create(synapse.getProvider(), expectedTokenAddress);
+                        if (typeof (PaymentsService as any).create === 'function') {
+                            const newPaymentsService = await (PaymentsService as any).create(synapse.getProvider(), expectedTokenAddress);
                             console.log('Created new payments service instance');
 
                             // Replace the payments service on the synapse instance
@@ -262,7 +262,7 @@ export const useTextUpload = () => {
 
             console.log('Starting upload with synapse instance:', {
                 hasPayments: !!synapse.payments,
-                paymentsTokenAddress: synapse.payments?.tokenAddress,
+                paymentsTokenAddress: (synapse.payments as any)?.tokenAddress,
                 configTokenAddress: FILECOIN_CONFIG.USDFC_TOKEN_ADDRESS
             });
 

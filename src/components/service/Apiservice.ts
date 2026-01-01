@@ -52,7 +52,7 @@ interface AuthResponse {
 }
 
 // Database type for unified functions
-type DatabaseType = 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb';
+type DatabaseType = 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'supabase';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -276,7 +276,7 @@ class ApiService {
 
     /**
      * Unified function to list all files from any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb', 'supabase')
      * @returns Promise<FileListResponse>
      */
     static async listAllFiles(database: DatabaseType): Promise<FileListResponse> {
@@ -310,6 +310,9 @@ class ApiService {
                 case 'neo4j':
                     endpoint = '/api/v1/listAllNeo4j';
                     break;
+                case 'supabase':
+                    endpoint = '/api/v1/listAllSupabase';
+                    break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
             }
@@ -323,7 +326,7 @@ class ApiService {
 
     /**
      * Unified function to get a file from any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb', 'supabase')
      * @param fileName - Name of the file to retrieve
      * @param isPasswordProtected - Whether the file is password protected
      * @returns Promise<FileContent>
@@ -373,6 +376,9 @@ class ApiService {
                 case 'neo4j':
                     endpoint = '/api/v1/getFileNeo4j';
                     break;
+                case 'supabase':
+                    endpoint = '/api/v1/getFileSupabase';
+                    break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
             }
@@ -415,7 +421,7 @@ class ApiService {
 
     /**
      * Unified function to upload a file to any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb', 'supabase')
      * @param fileName - Name of the file to upload
      * @param content - Content of the file
      * @param isPasswordProtected - Whether the file is password protected
@@ -464,6 +470,9 @@ class ApiService {
                 case 'neo4j':
                     endpoint = '/api/v1/uploadFileNeo4j';
                     break;
+                case 'supabase':
+                    endpoint = '/api/v1/uploadFileSupabase';
+                    break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);
             }
@@ -483,7 +492,7 @@ class ApiService {
 
     /**
      * Unified function to delete a file from any database
-     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb')
+     * @param database - The database type ('s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb', 'supabase')
      * @param fileName - Name of the file to delete
      * @param isPasswordProtected - Whether the file is password protected
      * @returns Promise<ApiResponse>
@@ -526,6 +535,9 @@ class ApiService {
                     break;
                 case 'neo4j':
                     endpoint = '/api/v1/deleteFileNeo4j';
+                    break;
+                case 'supabase':
+                    endpoint = '/api/v1/deleteFileSupabase';
                     break;
                 default:
                     throw new Error(`Unsupported database type: ${database}`);

@@ -38,19 +38,21 @@ const Cloud: React.FC<{
     updateBillType: Function;
 }> = (props) => {
     const [showModal, setShowModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'filecoin'>('s3');
+    const [activeTab, setActiveTab] = useState<'s3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'supabase' | 'filecoin'>('s3');
     const [s3Files, setS3Files] = useState<{ [key: string]: number }>({});
     const [postgresFiles, setPostgresFiles] = useState<{ [key: string]: number }>({});
     const [firebaseFiles, setFirebaseFiles] = useState<{ [key: string]: number }>({});
     const [mongoFiles, setMongoFiles] = useState<{ [key: string]: number }>({});
     const [neo4jFiles, setNeo4jFiles] = useState<{ [key: string]: number }>({});
     const [orbitdbFiles, setOrbitdbFiles] = useState<{ [key: string]: number }>({});
+    const [supabaseFiles, setSupabaseFiles] = useState<{ [key: string]: number }>({});
     const [s3PasswordProtected, setS3PasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [postgresPasswordProtected, setPostgresPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [firebasePasswordProtected, setFirebasePasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [mongoPasswordProtected, setMongoPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [neo4jPasswordProtected, setNeo4jPasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [orbitdbPasswordProtected, setOrbitdbPasswordProtected] = useState<{ [key: string]: boolean }>({});
+    const [supabasePasswordProtected, setSupabasePasswordProtected] = useState<{ [key: string]: boolean }>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -148,6 +150,10 @@ const Cloud: React.FC<{
                     setOrbitdbFiles(allFiles);
                     setOrbitdbPasswordProtected(passwordProtectedMap);
                     break;
+                case 'supabase':
+                    setSupabaseFiles(allFiles);
+                    setSupabasePasswordProtected(passwordProtectedMap);
+                    break;
             }
         } catch (err) {
             console.error(`Failed to load files from ${database}`, err);
@@ -168,6 +174,7 @@ const Cloud: React.FC<{
     const loadFilesFromMongo = () => loadFilesFromDatabase('mongo');
     const loadFilesFromNeo4j = () => loadFilesFromDatabase('neo4j');
     const loadFilesFromOrbitdb = () => loadFilesFromDatabase('orbitdb');
+    const loadFilesFromSupabase = () => loadFilesFromDatabase('supabase');
 
     // Load files from local storage
     const loadLocalFiles = async () => {
@@ -182,7 +189,7 @@ const Cloud: React.FC<{
     };
 
     // Switch tabs
-    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'filecoin') => {
+    const switchTab = async (tab: 's3' | 'postgres' | 'firebase' | 'mongo' | 'neo4j' | 'orbitdb' | 'supabase' | 'filecoin') => {
         // Deselect all files when switching tabs
         setSelectedCloudFiles({});
 
@@ -205,6 +212,8 @@ const Cloud: React.FC<{
             await loadFilesFromNeo4j();
         } else if (tab === 'orbitdb' && Object.keys(orbitdbFiles).length === 0) {
             await loadFilesFromOrbitdb();
+        } else if (tab === 'supabase' && Object.keys(supabaseFiles).length === 0) {
+            await loadFilesFromSupabase();
         }
         // Filecoin tab doesn't need to load files here as it uses React Query
     };
@@ -224,6 +233,8 @@ const Cloud: React.FC<{
                 return neo4jFiles;
             case 'orbitdb':
                 return orbitdbFiles;
+            case 'supabase':
+                return supabaseFiles;
             case 'filecoin':
                 // Convert filecoin files to the expected format
                 const filecoinFilesMap: { [key: string]: number } = {};
@@ -316,6 +327,9 @@ const Cloud: React.FC<{
                 case 'orbitdb':
                     success = await saveFileToOrbitdb(fullFileName, currentData, isPasswordProtected);
                     break;
+                case 'supabase':
+                    success = await saveFileToSupabase(fullFileName, currentData, isPasswordProtected);
+                    break;
             }
 
             if (success) {
@@ -338,6 +352,9 @@ const Cloud: React.FC<{
                         break;
                     case 'orbitdb':
                         provider = 'OrbitDB';
+                        break;
+                    case 'supabase':
+                        provider = 'Supabase';
                         break;
                 }
                 setToastMessage(`Invoice saved to ${provider} as "${fullFileName}"`);
@@ -386,6 +403,8 @@ const Cloud: React.FC<{
         saveFileToDatabase('neo4j', fileName, content, isPasswordProtected);
     const saveFileToOrbitdb = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
         saveFileToDatabase('orbitdb', fileName, content, isPasswordProtected);
+    const saveFileToSupabase = (fileName: string, content: string, isPasswordProtected: boolean = false) =>
+        saveFileToDatabase('supabase', fileName, content, isPasswordProtected);
 
     // Edit file from cloud
     const editFile = async (key: string) => {
@@ -704,6 +723,8 @@ const Cloud: React.FC<{
                 return neo4jPasswordProtected[fileName] || false;
             case 'orbitdb':
                 return orbitdbPasswordProtected[fileName] || false;
+            case 'supabase':
+                return supabasePasswordProtected[fileName] || false;
             default:
                 return false;
         }
@@ -801,7 +822,7 @@ const Cloud: React.FC<{
 
     // Get available migration target databases (excluding current active tab)
     const getMigrationTargetDatabases = (): DatabaseType[] => {
-        const allDatabases: DatabaseType[] = ['s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb'];
+        const allDatabases: DatabaseType[] = ['s3', 'postgres', 'firebase', 'mongo', 'neo4j', 'orbitdb', 'supabase'];
         return allDatabases.filter(db => db !== activeTab);
     };
 
@@ -814,6 +835,7 @@ const Cloud: React.FC<{
             case 'mongo': return 'MongoDB';
             case 'neo4j': return 'Neo4j';
             case 'orbitdb': return 'OrbitDB';
+            case 'supabase': return 'Supabase';
             default: return database;
         }
     };
@@ -1195,6 +1217,13 @@ const Cloud: React.FC<{
                                 🌌 OrbitDB
                             </button>
                             <button
+                                className={`tab-button ${activeTab === 'supabase' ? 'active' : ''}`}
+                                onClick={() => switchTab('supabase')}
+                                disabled={loading}
+                            >
+                                ⚡ Supabase
+                            </button>
+                            <button
                                 className={`tab-button ${activeTab === 'filecoin' ? 'active' : ''}`}
                                 onClick={() => switchTab('filecoin')}
                                 disabled={loading}
@@ -1317,7 +1346,8 @@ const Cloud: React.FC<{
                                                     activeTab === 'mongo' ? 'MongoDB' :
                                                         activeTab === 'neo4j' ? 'Neo4j' :
                                                             activeTab === 'orbitdb' ? 'OrbitDB' :
-                                                                'Filecoin'
+                                                                activeTab === 'supabase' ? 'Supabase' :
+                                                                    'Filecoin'
                                     }...
                                 </div>
                             )}
@@ -1337,7 +1367,8 @@ const Cloud: React.FC<{
                                                     activeTab === 'mongo' ? 'MongoDB' :
                                                         activeTab === 'neo4j' ? 'Neo4j' :
                                                             activeTab === 'orbitdb' ? 'OrbitDB' :
-                                                                'Filecoin'
+                                                                activeTab === 'supabase' ? 'Supabase' :
+                                                                    'Filecoin'
                                     }
                                 </div>
                             )}

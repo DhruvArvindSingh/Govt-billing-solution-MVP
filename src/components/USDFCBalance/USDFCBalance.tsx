@@ -32,7 +32,7 @@ export const USDFCBalance: React.FC = () => {
             console.log('Is connected:', isConnected);
 
             console.log('Synapse payments service:', synapse.payments);
-            console.log('Synapse payments token address:', synapse.payments?.tokenAddress);
+            console.log('Synapse payments token address:', (synapse.payments as any)?.tokenAddress);
             console.log('Expected token address:', FILECOIN_CONFIG.USDFC_TOKEN_ADDRESS);
 
             const userBalance = await synapse.payments.balance();

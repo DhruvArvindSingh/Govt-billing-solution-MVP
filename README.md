@@ -294,12 +294,13 @@ graph TB
     D --> J[MongoDB]
     D --> K[Neo4j]
     D --> L[OrbitDB - P2P]
-    E --> M[API Service Layer]
+    D --> M1[Supabase]
+    E --> N1[API Service Layer]
     
-    A --> N[SocialCalc Engine]
-    N --> O[Spreadsheet Features]
-    N --> P[Real-time Calculations]
-    N --> Q[Multi-Sheet Support]
+    A --> O1[SocialCalc Engine]
+    O1 --> P1[Spreadsheet Features]
+    O1 --> Q1[Real-time Calculations]
+    O1 --> R1[Multi-Sheet Support]
 ```
 
 ### **Security Architecture**
@@ -313,7 +314,7 @@ graph TB
 
 ### **Database Integration Architecture**
 
-The application features a unified database abstraction layer supporting 6 different storage systems:
+The application features a unified database abstraction layer supporting 7 different storage systems:
 
 1. **AWS S3**: Primary cloud storage for production use
 2. **PostgreSQL**: Structured relational data storage
@@ -321,6 +322,7 @@ The application features a unified database abstraction layer supporting 6 diffe
 4. **MongoDB**: Flexible document-based storage
 5. **Neo4j**: Graph database for complex relationships
 6. **OrbitDB**: Decentralized P2P storage using IndexedDB
+7. **Supabase**: Open-source Firebase alternative with PostgreSQL power
 
 All databases use the same API interface for consistent operations:
 - `listAllFiles()` - Get file listings with metadata

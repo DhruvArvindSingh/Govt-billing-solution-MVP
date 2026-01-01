@@ -150,11 +150,11 @@ export const useFilecoinFiles = () => {
                         return;
                     }
 
-                    console.log(`Processing dataset ${dataset.clientDataSetId} with ${dataResult.data?.pieces?.length || 0} pieces`);
+                    console.log(`Processing dataset ${dataset.clientDataSetId} with ${(dataResult as any).data?.pieces?.length || 0} pieces`);
 
                     // Process pieces if available
-                    if (dataResult.data?.pieces && Array.isArray(dataResult.data.pieces)) {
-                        dataResult.data.pieces.forEach((piece: any) => {
+                    if ((dataResult as any).data?.pieces && Array.isArray((dataResult as any).data.pieces)) {
+                        (dataResult as any).data.pieces.forEach((piece: any) => {
                             console.log('Processing piece:', piece);
 
                             const pieceCidString = piece.pieceCid?.toString() || piece.cid?.toString() || 'unknown';
@@ -173,7 +173,7 @@ export const useFilecoinFiles = () => {
                                             Date.now(),
                                 txHash: piece.txHash || piece.transactionHash,
                                 pieceId: piece.pieceId || piece.id,
-                                datasetId: dataset.clientDataSetId,
+                                datasetId: String(dataset.clientDataSetId),
                                 providerId: dataset.providerId,
                                 serviceURL: dataResult.serviceURL
                             };
@@ -184,8 +184,8 @@ export const useFilecoinFiles = () => {
                     } else {
                         console.log(`No pieces found for dataset ${dataset.clientDataSetId}, but dataset exists`);
                         // Create a file entry for the dataset itself if no pieces are available
-                        const datasetCid = dataResult.data?.pieceCid?.toString() ||
-                            dataResult.data?.cid?.toString() ||
+                        const datasetCid = (dataResult as any).data?.pieceCid?.toString() ||
+                            (dataResult as any).data?.cid?.toString() ||
                             dataset.clientDataSetId;
 
                         const shortCid = datasetCid.length > 12 ?
@@ -193,12 +193,12 @@ export const useFilecoinFiles = () => {
                             datasetCid;
 
                         files.push({
-                            id: dataset.clientDataSetId,
+                            id: String(dataset.clientDataSetId),
                             name: `Dataset-${shortCid}`,
                             pieceCid: datasetCid,
                             size: 0, // Size unknown at dataset level
                             uploadedAt: Date.now(), // Creation time unknown
-                            datasetId: dataset.clientDataSetId,
+                            datasetId: String(dataset.clientDataSetId),
                             providerId: dataset.providerId,
                             serviceURL: dataResult.serviceURL
                         });

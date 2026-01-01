@@ -4,7 +4,7 @@ This document provides comprehensive documentation for all database storage syst
 
 ## Overview
 
-The Government Billing Solution MVP implements a **unified multi-database architecture** supporting 6 different storage systems with a common API interface. This design provides flexibility, redundancy, and allows users to choose the most appropriate storage solution for their needs.
+The Government Billing Solution MVP implements a **unified multi-database architecture** supporting 7 different storage systems with a common API interface. This design provides flexibility, redundancy, and allows users to choose the most appropriate storage solution for their needs.
 
 ## Supported Database Systems
 
@@ -48,6 +48,12 @@ The Government Billing Solution MVP implements a **unified multi-database archit
 - **Type**: Graph database
 - **Implementation**: Server-side API integration
 - **Primary Use**: Complex relationship data
+- **Encryption**: Server-side encryption
+
+### 8. Supabase
+- **Type**: Open-source Firebase alternative (PostgreSQL-based)
+- **Implementation**: Server-side API integration
+- **Primary Use**: Real-time database with PostgreSQL power
 - **Encryption**: Server-side encryption
 
 ## Data Structure and Schema
@@ -170,7 +176,7 @@ Indexes:
 3. Handle password protection at application level
 4. Maintain temporal indexes for efficient querying
 
-### 3. Cloud Database Systems (S3, PostgreSQL, Firebase, MongoDB, Neo4j)
+### 3. Cloud Database Systems (S3, PostgreSQL, Firebase, MongoDB, Neo4j, Supabase)
 
 All cloud database systems follow a unified server-side API pattern:
 
@@ -259,6 +265,13 @@ Content-Type: application/json
 - Relationships track file ownership and metadata
 - Cypher queries for complex file relationships
 - ACID transactions for graph consistency
+
+**Supabase:**
+- PostgreSQL-based storage with real-time capabilities
+- Row-level security for user data isolation
+- Built-in authentication and authorization
+- RESTful API with automatic API generation
+- Real-time subscriptions for live data updates
 
 ## Data Flow Architecture
 
@@ -459,6 +472,7 @@ Each cloud database system has its own configuration requirements managed server
 - **Firebase**: Project configuration, service account keys
 - **MongoDB**: Cluster configuration, authentication settings
 - **Neo4j**: Database URI, authentication credentials
+- **Supabase**: Project URL, API keys, database connection strings
 
 ### Local Storage Configuration
 - **Encryption Settings**: Default algorithms and key sizes
